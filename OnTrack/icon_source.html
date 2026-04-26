@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<body style="background:#000;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
+<canvas id="c" width="1024" height="1024"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+// Background
+ctx.fillStyle = '#FFFFFF';
+ctx.fillRect(0, 0, 1024, 1024);
+
+// Load and draw the logo with padding
+const img = new Image();
+img.onload = function() {
+  // Draw with 15% padding on each side
+  const pad = 154;
+  ctx.drawImage(img, pad, pad, 1024 - pad*2, 1024 - pad*2);
+
+  // Show download link
+  const link = document.createElement('a');
+  link.download = 'OnTrackIcon.png';
+  link.href = canvas.toDataURL();
+  link.textContent = 'Download Icon';
+  link.style.cssText = 'color:white;font-size:24px;display:block;margin-top:20px';
+  document.body.appendChild(link);
+};
+img.src = 'YOUR_LOGO_PATH_HERE';
+</script>
+</body>
+</html>

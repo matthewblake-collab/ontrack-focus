@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSHealthShareUsageDescription</key>
+	<string>OnTrack uses your health data to personalise your wellness insights and pre-fill your daily check-in.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>OnTrack uses Face ID to sign you in quickly and securely.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Used to scan friend QR codes</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>SentryDSN</key>
+	<string>https://6bb331389feafd6722fc012c944df114@o4511255159767040.ingest.us.sentry.io/4511255169073152</string>
+	<key>PostHogAPIKey</key>
+	<string>phc_oS8hXJyseHs6FhRYKYBC6PsnyeD6uQNz4uGizFnd3EDa</string>
+	<key>PostHogHost</key>
+	<string>https://us.i.posthog.com</string>
+</dict>
+</plist>

@@ -1,0 +1,59 @@
+# Xcode
+*.xcuserstate
+xcuserdata/
+*.xccheckout
+*.moved-aside
+DerivedData/
+*.hmap
+*.ipa
+*.xcarchive
+build/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+*.resolved
+
+# CocoaPods
+Pods/
+Podfile.lock
+
+# macOS
+.DS_Store
+*.swp
+.AppleDouble
+.LSOverride
+
+# Claude Code
+CLAUDE.local.md
+.claude/cache/
+.claude/shell-snapshots/
+.claude/telemetry/
+.claude/paste-cache/
+.claude/history.jsonl
+
+# Xcode backup files
+*.pbxproj.bak
+
+# Keys and secrets
+*.pem
+*.p8
+*.env
+ExportOptions.plist
+
+# Build artifacts
+*.o
+*.d
+*.dia
+
+# Content engine build artifacts
+content-engine/out/
+
+# Planning artifacts
+.ultraplan/
+
+# Xcode backup
+project.pbxproj.bak
+
+# Large image assets (use LFS if needed)
+*.heic

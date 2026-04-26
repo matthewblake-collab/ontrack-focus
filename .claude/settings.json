@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|Create",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '--- Build Check ---' && cd ~/Desktop/OnTrack/OnTrack && xcodebuild -scheme OnTrack -destination 'generic/platform=iOS Simulator' -quiet build 2>&1 | grep -E 'error:|warning:|BUILD' | head -20"
+          }
+        ]
+      }
+    ]
+  }
+}
