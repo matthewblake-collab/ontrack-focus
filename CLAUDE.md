@@ -151,3 +151,12 @@ Direct API calls (messages.create, claude()) use credits - flag token cost befor
 - Google security alerts (no-reply@accounts.google.com): delete, skip report
 - Anthropic billing alerts: flag as URGENT
 - Promo/travel emails: archive, skip report
+
+## Read-Only Tasks
+When asked for a report, audit, analysis, or review — do NOT modify, refactor, or disable any code or services. Produce findings only. Ask explicit permission before making any edits.
+
+## Python Compatibility
+Target Python 3.9.6 for all Jarvis and routine scripts. Always add `from __future__ import annotations` when using PEP 604 union types. Avoid Python 3.10+ syntax in runtime code.
+
+## File Writing
+When creating .gitignore or other plain-text config files, always use `printf` or `cat <<EOF` via Bash — never the Write tool, which adds markdown formatting artifacts.
