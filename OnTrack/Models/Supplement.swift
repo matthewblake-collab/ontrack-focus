@@ -69,6 +69,33 @@ struct Supplement: Codable, Identifiable {
         return daysOfWeek.split(separator: ",").contains { String($0) == weekday }
     }
 
+    /// Counts the dates inside a `custom|...` payload that fall on a calendar day within
+    /// `[startOfDay(start), startOfDay(end)]` (inclusive both ends). Used by ProgressViewModel
+    /// to compute the adherence denominator for custom-day supplements; without this the
+    /// previous CSV parse produced an empty target set and the supplement was hidden from
+    /// stats.
+    ///
+    /// Returns 0 for non-custom formats — callers that need weekly/everyday counts must
+    /// build those themselves (typically via `weekdayNumCounts` precomputation).
+    static func customScheduledDayCount(
+        daysOfWeek: String,
+        from start: Date,
+        to end: Date,
+        calendar: Calendar = .current
+    ) -> Int {
+        guard daysOfWeek.hasPrefix("custom|") else { return 0 }
+        let startDay = calendar.startOfDay(for: start)
+        let endDay = calendar.startOfDay(for: end)
+        let payload = daysOfWeek.dropFirst("custom|".count)
+        var match = 0
+        for chunk in payload.split(separator: ",") {
+            guard let ts = TimeInterval(chunk) else { continue }
+            let day = calendar.startOfDay(for: Date(timeIntervalSince1970: ts))
+            if day >= startDay && day <= endDay { match += 1 }
+        }
+        return match
+    }
+
     /// Returns the upcoming scheduled `Date`s for a `custom|...` payload, sorted ascending,
     /// dropping any timestamp at or before `after`. For non-custom formats returns `[]` —
     /// callers that need to enumerate future dates of weekly/everyday recurrences must build

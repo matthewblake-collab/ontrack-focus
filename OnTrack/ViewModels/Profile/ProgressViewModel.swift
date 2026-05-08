@@ -671,6 +671,16 @@ final class ProgressViewModel {
                 let denom: Int
                 if dow == "everyday" || dow.isEmpty {
                     denom = effectiveDays
+                } else if dow.hasPrefix("custom|") {
+                    // Custom-day supplements: count payload timestamps in [effectiveStart, today].
+                    // Without this branch the weekday-CSV parse below produces an empty target
+                    // set, denom = 0, and the supplement is silently hidden from progress stats.
+                    denom = Supplement.customScheduledDayCount(
+                        daysOfWeek: dow,
+                        from: effectiveStart,
+                        to: today,
+                        calendar: calendar
+                    )
                 } else {
                     let targets = Set(dow.split(separator: ",").compactMap { Int($0.trimmingCharacters(in: .whitespaces)) })
                     if effectiveStart == windowStart {

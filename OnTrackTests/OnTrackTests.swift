@@ -133,6 +133,54 @@ final class OnTrackTests: XCTestCase {
         XCTAssertEqual(upcoming, Array(dates.prefix(5)))
     }
 
+    // MARK: - Supplement.customScheduledDayCount(daysOfWeek:from:to:calendar:)
+
+    /// Regression: ProgressViewModel.adherence used a CSV-int parse that produced
+    /// an empty target set for `custom|...`, so denom=0 and custom-day supplements
+    /// disappeared from progress stats. The new helper must count exactly the
+    /// payload dates that fall in [effectiveStart, today].
+    func testSupplement_customScheduledDayCount_30dayWindow_monAndThu_returns8() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Australia/Brisbane") ?? .current
+
+        // 30-day window ending 2026-05-31 → 2026-05-02 to 2026-05-31 inclusive.
+        var comps = DateComponents()
+        comps.year = 2026; comps.month = 5; comps.hour = 9
+        comps.day = 31; let today = cal.date(from: comps)!
+        comps.day = 2;  let windowStart = cal.date(from: comps)!
+
+        // All Mondays + Thursdays in May 2026: 4, 7, 11, 14, 18, 21, 25, 28 → 8 dates.
+        // Plus 2 dates outside the window to prove they're excluded.
+        var dates: [Date] = []
+        for day in [4, 7, 11, 14, 18, 21, 25, 28] {
+            comps.day = day
+            dates.append(cal.date(from: comps)!)
+        }
+        comps.month = 4; comps.day = 30
+        dates.append(cal.date(from: comps)!) // before window
+        comps.month = 6; comps.day = 1
+        dates.append(cal.date(from: comps)!) // after window
+
+        let payload = dates.map { String($0.timeIntervalSince1970) }.joined(separator: ",")
+        let dow = "custom|\(payload)"
+
+        let count = Supplement.customScheduledDayCount(
+            daysOfWeek: dow,
+            from: windowStart,
+            to: today,
+            calendar: cal
+        )
+        XCTAssertEqual(count, 8, "expected 8 in-window Mon+Thu dates, out-of-window dropped")
+    }
+
+    func testSupplement_customScheduledDayCount_nonCustom_returnsZero() {
+        // Helper is custom-only; non-custom formats must return 0 rather than a
+        // misleading partial count — callers compute those via weekday counts.
+        XCTAssertEqual(Supplement.customScheduledDayCount(daysOfWeek: "everyday", from: Date(), to: Date()), 0)
+        XCTAssertEqual(Supplement.customScheduledDayCount(daysOfWeek: "2,5", from: Date(), to: Date()), 0)
+        XCTAssertEqual(Supplement.customScheduledDayCount(daysOfWeek: "weekly|123456", from: Date(), to: Date()), 0)
+    }
+
     func testSupplement_upcomingScheduledDates_nonCustom_returnsEmpty() {
         // weekly|, fortnightly|, "everyday", weekday-CSV all return [] — those formats
         // need their own enumeration logic, not handled by this helper.
