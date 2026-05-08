@@ -69,6 +69,78 @@ final class OnTrackTests: XCTestCase {
         XCTAssertFalse(supp.isScheduled(on: tue, calendar: cal))
     }
 
+    // MARK: - Supplement.upcomingScheduledDates(daysOfWeek:after:limit:calendar:)
+
+    /// Regression: NotificationManager fans out one UNCalendarNotificationTrigger
+    /// per future custom date. The helper must return exactly the future timestamps
+    /// (no past dates), sorted ascending, capped by `limit`. 8 dates with a "now"
+    /// before all of them → 8 dates back.
+    func testSupplement_upcomingScheduledDates_returnsFutureOnly_sorted() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Australia/Brisbane") ?? .current
+
+        // Build 8 dates: 4 Mondays + 4 Thursdays in May 2026, plus 2 dates in
+        // January 2026 that should be filtered as "past".
+        var comps = DateComponents()
+        comps.year = 2026; comps.hour = 9
+        comps.month = 5
+        comps.day = 4;  let mon1 = cal.date(from: comps)!
+        comps.day = 7;  let thu1 = cal.date(from: comps)!
+        comps.day = 11; let mon2 = cal.date(from: comps)!
+        comps.day = 14; let thu2 = cal.date(from: comps)!
+        comps.day = 18; let mon3 = cal.date(from: comps)!
+        comps.day = 21; let thu3 = cal.date(from: comps)!
+        comps.day = 25; let mon4 = cal.date(from: comps)!
+        comps.day = 28; let thu4 = cal.date(from: comps)!
+        comps.month = 1
+        comps.day = 5;  let pastMon = cal.date(from: comps)!
+        comps.day = 8;  let pastThu = cal.date(from: comps)!
+
+        // Stored unsorted to prove the helper sorts.
+        let allDates = [thu2, mon1, pastMon, mon3, thu1, mon4, pastThu, thu4, mon2, thu3]
+        let payload = allDates.map { String($0.timeIntervalSince1970) }.joined(separator: ",")
+        let dow = "custom|\(payload)"
+
+        // "now" is set to 2026-05-01 — past dates should be dropped, future kept.
+        comps.year = 2026; comps.month = 5; comps.day = 1
+        let now = cal.date(from: comps)!
+
+        let upcoming = Supplement.upcomingScheduledDates(
+            daysOfWeek: dow,
+            after: now,
+            limit: 30,
+            calendar: cal
+        )
+
+        XCTAssertEqual(upcoming.count, 8, "expected 8 future dates, dropped 2 past")
+        XCTAssertEqual(upcoming, [mon1, thu1, mon2, thu2, mon3, thu3, mon4, thu4],
+                       "must be sorted ascending")
+    }
+
+    func testSupplement_upcomingScheduledDates_respectsLimit() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Australia/Brisbane") ?? .current
+        var comps = DateComponents(); comps.year = 2026; comps.month = 5; comps.hour = 9
+        comps.day = 1; let now = cal.date(from: comps)!
+        // 10 sequential days
+        let dates: [Date] = (4...13).map { day in
+            comps.day = day
+            return cal.date(from: comps)!
+        }
+        let dow = "custom|" + dates.map { String($0.timeIntervalSince1970) }.joined(separator: ",")
+        let upcoming = Supplement.upcomingScheduledDates(daysOfWeek: dow, after: now, limit: 5, calendar: cal)
+        XCTAssertEqual(upcoming.count, 5, "limit must cap")
+        XCTAssertEqual(upcoming, Array(dates.prefix(5)))
+    }
+
+    func testSupplement_upcomingScheduledDates_nonCustom_returnsEmpty() {
+        // weekly|, fortnightly|, "everyday", weekday-CSV all return [] — those formats
+        // need their own enumeration logic, not handled by this helper.
+        XCTAssertTrue(Supplement.upcomingScheduledDates(daysOfWeek: "everyday", after: Date()).isEmpty)
+        XCTAssertTrue(Supplement.upcomingScheduledDates(daysOfWeek: "2,5", after: Date()).isEmpty)
+        XCTAssertTrue(Supplement.upcomingScheduledDates(daysOfWeek: "weekly|123456", after: Date()).isEmpty)
+    }
+
     // MARK: - Helpers
 
     private func makeSupp(daysOfWeek: String) -> Supplement {

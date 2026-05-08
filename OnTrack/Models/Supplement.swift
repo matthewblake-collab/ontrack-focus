@@ -40,25 +40,59 @@ struct Supplement: Codable, Identifiable {
     }
 
     /// Returns true if this supplement is scheduled to appear on `date`.
-    /// Handles all supported `daysOfWeek` formats:
-    /// - "everyday" / empty → always true
-    /// - "1,2,3" (weekday CSV, 1=Sun…7=Sat) → matches if today's weekday is in the set
-    /// - "custom|<ts1>,<ts2>,…" (UNIX timestamps from CustomSupplementDatePicker) → matches
-    ///   if any timestamp falls on the same calendar day as `date`
-    /// - All other formats (weekly|<endTs>, fortnightly|…, monthly|…, once) fall through to
-    ///   the legacy CSV path and return false unless they happen to contain a matching weekday.
+    /// See `Supplement.isScheduled(daysOfWeek:on:calendar:)` for the format contract.
     func isScheduled(on date: Date, calendar: Calendar = .current) -> Bool {
-        let days = daysOfWeek
-        if days == "everyday" || days.isEmpty { return true }
-        if days.hasPrefix("custom|") {
-            let payload = days.dropFirst("custom|".count)
+        Supplement.isScheduled(daysOfWeek: daysOfWeek, on: date, calendar: calendar)
+    }
+
+    /// Pure predicate over the raw `days_of_week` string. Used by the instance method above
+    /// and by code paths that hold partial Supplement data (NotificationManager / ProgressViewModel
+    /// fetch lightweight rows rather than the full model).
+    ///
+    /// Supported formats:
+    /// - "everyday" / empty → always true
+    /// - "1,2,3" (weekday CSV, 1=Sun…7=Sat) → matches if `date`'s weekday is in the set
+    /// - "custom|<ts1>,<ts2>,…" (UNIX timestamps from CustomSupplementDatePicker) →
+    ///   matches if any timestamp falls on the same calendar day as `date`
+    /// - All other formats (weekly|<endTs>, fortnightly|…, monthly|…, once) fall through to
+    ///   the legacy CSV path and return false unless they contain a matching weekday integer.
+    static func isScheduled(daysOfWeek: String, on date: Date, calendar: Calendar = .current) -> Bool {
+        if daysOfWeek == "everyday" || daysOfWeek.isEmpty { return true }
+        if daysOfWeek.hasPrefix("custom|") {
+            let payload = daysOfWeek.dropFirst("custom|".count)
             return payload.split(separator: ",").contains { chunk in
                 guard let ts = TimeInterval(chunk) else { return false }
                 return calendar.isDate(Date(timeIntervalSince1970: ts), inSameDayAs: date)
             }
         }
         let weekday = String(calendar.component(.weekday, from: date))
-        return days.split(separator: ",").contains { String($0) == weekday }
+        return daysOfWeek.split(separator: ",").contains { String($0) == weekday }
+    }
+
+    /// Returns the upcoming scheduled `Date`s for a `custom|...` payload, sorted ascending,
+    /// dropping any timestamp at or before `after`. For non-custom formats returns `[]` —
+    /// callers that need to enumerate future dates of weekly/everyday recurrences must build
+    /// those themselves.
+    ///
+    /// - Parameter limit: hard cap on returned count (used by NotificationManager to stay
+    ///   under iOS's 64 pending-request budget across all supplements).
+    static func upcomingScheduledDates(
+        daysOfWeek: String,
+        after: Date,
+        limit: Int = 30,
+        calendar: Calendar = .current
+    ) -> [Date] {
+        guard daysOfWeek.hasPrefix("custom|") else { return [] }
+        let payload = daysOfWeek.dropFirst("custom|".count)
+        let dates: [Date] = payload.split(separator: ",").compactMap { chunk in
+            guard let ts = TimeInterval(chunk) else { return nil }
+            return Date(timeIntervalSince1970: ts)
+        }
+        return dates
+            .filter { $0 > after }
+            .sorted()
+            .prefix(limit)
+            .map { $0 }
     }
 }
 
