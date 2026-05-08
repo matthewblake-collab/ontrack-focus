@@ -12,6 +12,8 @@ final class AnalyticsManager {
         case sessionRsvp = "session_rsvp"
         case habitLogged = "habit_logged"
         case checkinSubmitted = "checkin_submitted"
+        // Generic UI-event bucket for `track(.buttonTapped, properties: [...])` calls
+        // injected by tooling. Properties carry the screen/button identifiers.
         case buttonTapped = "button_tapped"
     }
 
