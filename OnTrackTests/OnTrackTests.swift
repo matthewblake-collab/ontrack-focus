@@ -189,6 +189,155 @@ final class OnTrackTests: XCTestCase {
         XCTAssertTrue(Supplement.upcomingScheduledDates(daysOfWeek: "weekly|123456", after: Date()).isEmpty)
     }
 
+    // MARK: - Weekly / fortnightly / monthly / once recurrence
+
+    /// `weekly|<endTs>` matches every 7 calendar days from anchor up to and
+    /// including endTs.
+    func testSupplement_isScheduled_weekly_stride7FromAnchor() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Australia/Brisbane") ?? .current
+        var c = DateComponents(); c.year = 2026; c.month = 5; c.hour = 9
+        c.day = 4;  let anchor = cal.date(from: c)! // Mon
+        c.day = 11; let nextWeek = cal.date(from: c)!
+        c.day = 18; let twoWeeks = cal.date(from: c)!
+        c.day = 5;  let dayAfterAnchor = cal.date(from: c)!
+        c.day = 25; let beyondEnd = cal.date(from: c)!
+        c.day = 18; let endTsDate = cal.date(from: c)!
+        let dow = "weekly|\(endTsDate.timeIntervalSince1970)"
+
+        XCTAssertTrue(Supplement.isScheduled(daysOfWeek: dow, on: anchor, anchor: anchor, calendar: cal))
+        XCTAssertTrue(Supplement.isScheduled(daysOfWeek: dow, on: nextWeek, anchor: anchor, calendar: cal))
+        XCTAssertTrue(Supplement.isScheduled(daysOfWeek: dow, on: twoWeeks, anchor: anchor, calendar: cal),
+                      "endTs is inclusive on its calendar day")
+        XCTAssertFalse(Supplement.isScheduled(daysOfWeek: dow, on: dayAfterAnchor, anchor: anchor, calendar: cal),
+                       "off-stride day must not match")
+        XCTAssertFalse(Supplement.isScheduled(daysOfWeek: dow, on: beyondEnd, anchor: anchor, calendar: cal),
+                       "past endTs must not match")
+    }
+
+    func testSupplement_isScheduled_fortnightly_stride14FromAnchor() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Australia/Brisbane") ?? .current
+        var c = DateComponents(); c.year = 2026; c.month = 5; c.hour = 9
+        c.day = 4;  let anchor = cal.date(from: c)! // Mon
+        c.day = 11; let weekLater = cal.date(from: c)!
+        c.day = 18; let twoWeeks = cal.date(from: c)!
+        c.day = 30; let endTsDate = cal.date(from: c)!
+        let dow = "fortnightly|\(endTsDate.timeIntervalSince1970)"
+
+        XCTAssertTrue(Supplement.isScheduled(daysOfWeek: dow, on: anchor, anchor: anchor, calendar: cal))
+        XCTAssertFalse(Supplement.isScheduled(daysOfWeek: dow, on: weekLater, anchor: anchor, calendar: cal),
+                       "7-day offset must NOT match fortnightly stride")
+        XCTAssertTrue(Supplement.isScheduled(daysOfWeek: dow, on: twoWeeks, anchor: anchor, calendar: cal))
+    }
+
+    func testSupplement_isScheduled_monthly_sameDayOfMonth() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Australia/Brisbane") ?? .current
+        var c = DateComponents(); c.year = 2026; c.month = 5; c.day = 15; c.hour = 9
+        let anchor = cal.date(from: c)!
+        c.month = 6
+        let nextMonthSameDay = cal.date(from: c)!
+        c.day = 16
+        let nextMonthOffByOne = cal.date(from: c)!
+        c.year = 2026; c.month = 12; c.day = 15
+        let endTsDate = cal.date(from: c)!
+        let dow = "monthly|\(endTsDate.timeIntervalSince1970)"
+
+        XCTAssertTrue(Supplement.isScheduled(daysOfWeek: dow, on: anchor, anchor: anchor, calendar: cal))
+        XCTAssertTrue(Supplement.isScheduled(daysOfWeek: dow, on: nextMonthSameDay, anchor: anchor, calendar: cal))
+        XCTAssertFalse(Supplement.isScheduled(daysOfWeek: dow, on: nextMonthOffByOne, anchor: anchor, calendar: cal))
+    }
+
+    func testSupplement_isScheduled_monthly_skipsMonthsWithoutDay31() {
+        // Anchor on day 31 → February (28 days) and April (30 days) are skipped, by design.
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Australia/Brisbane") ?? .current
+        var c = DateComponents(); c.year = 2026; c.month = 1; c.day = 31; c.hour = 9
+        let anchor = cal.date(from: c)!
+        c.month = 2; c.day = 28
+        let feb28 = cal.date(from: c)!
+        c.month = 3; c.day = 31
+        let mar31 = cal.date(from: c)!
+        c.month = 12; c.day = 31
+        let endTsDate = cal.date(from: c)!
+        let dow = "monthly|\(endTsDate.timeIntervalSince1970)"
+
+        XCTAssertFalse(Supplement.isScheduled(daysOfWeek: dow, on: feb28, anchor: anchor, calendar: cal),
+                       "Feb 28 != anchor's day-of-month 31")
+        XCTAssertTrue(Supplement.isScheduled(daysOfWeek: dow, on: mar31, anchor: anchor, calendar: cal))
+    }
+
+    func testSupplement_isScheduled_once_matchesOnlyAnchorDay() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Australia/Brisbane") ?? .current
+        var c = DateComponents(); c.year = 2026; c.month = 5; c.day = 15; c.hour = 9
+        let anchor = cal.date(from: c)!
+        c.day = 16
+        let nextDay = cal.date(from: c)!
+        c.day = 14
+        let dayBefore = cal.date(from: c)!
+        // Time of day on the anchor day shouldn't matter — ensure midday matches too.
+        c.day = 15; c.hour = 14
+        let anchorAfternoon = cal.date(from: c)!
+
+        XCTAssertTrue(Supplement.isScheduled(daysOfWeek: "once", on: anchor, anchor: anchor, calendar: cal))
+        XCTAssertTrue(Supplement.isScheduled(daysOfWeek: "once", on: anchorAfternoon, anchor: anchor, calendar: cal))
+        XCTAssertFalse(Supplement.isScheduled(daysOfWeek: "once", on: nextDay, anchor: anchor, calendar: cal))
+        XCTAssertFalse(Supplement.isScheduled(daysOfWeek: "once", on: dayBefore, anchor: anchor, calendar: cal))
+    }
+
+    /// Without an anchor we cannot derive a schedule for weekly/fortnightly/monthly/once.
+    /// The predicate must short-circuit to `false` rather than fall back to the legacy
+    /// CSV path (which would then accidentally return true for stray weekday matches).
+    func testSupplement_isScheduled_noAnchor_returnsFalseForRecurrenceFormats() {
+        let now = Date()
+        let endTs = now.addingTimeInterval(7 * 86400).timeIntervalSince1970
+        XCTAssertFalse(Supplement.isScheduled(daysOfWeek: "weekly|\(endTs)", on: now, anchor: nil))
+        XCTAssertFalse(Supplement.isScheduled(daysOfWeek: "fortnightly|\(endTs)", on: now, anchor: nil))
+        XCTAssertFalse(Supplement.isScheduled(daysOfWeek: "monthly|\(endTs)", on: now, anchor: nil))
+        XCTAssertFalse(Supplement.isScheduled(daysOfWeek: "once", on: now, anchor: nil))
+    }
+
+    /// `scheduledDayCount` must aggregate the predicate over [from, to] inclusive.
+    /// Verifies ProgressViewModel.adherence will count weekly recurrences correctly.
+    func testSupplement_scheduledDayCount_weekly_30dayWindow_returns5() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Australia/Brisbane") ?? .current
+        var c = DateComponents(); c.year = 2026; c.month = 5; c.hour = 9
+        c.day = 4;  let anchor = cal.date(from: c)! // Mon May 4
+        c.day = 31; let endTsDate = cal.date(from: c)!
+        c.day = 2;  let from = cal.date(from: c)!
+        c.day = 31; let to = cal.date(from: c)!
+        let dow = "weekly|\(endTsDate.timeIntervalSince1970)"
+        // Mondays in May 2026: 4, 11, 18, 25 → 4 weekly hits. (May 31 is the end day
+        // but isn't a multiple-of-7 day off the anchor, so it's not a hit.)
+        let count = Supplement.scheduledDayCount(daysOfWeek: dow, from: from, to: to, anchor: anchor, calendar: cal)
+        XCTAssertEqual(count, 4)
+    }
+
+    func testSupplement_scheduledDayCount_once_returnsOneOrZero() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Australia/Brisbane") ?? .current
+        var c = DateComponents(); c.year = 2026; c.month = 5; c.day = 15; c.hour = 9
+        let anchor = cal.date(from: c)!
+        c.day = 1;  let from = cal.date(from: c)!
+        c.day = 31; let to = cal.date(from: c)!
+        XCTAssertEqual(
+            Supplement.scheduledDayCount(daysOfWeek: "once", from: from, to: to, anchor: anchor, calendar: cal),
+            1,
+            "anchor inside window → 1"
+        )
+        c.month = 4
+        c.day = 1; let earlyFrom = cal.date(from: c)!
+        c.day = 30; let earlyTo = cal.date(from: c)!
+        XCTAssertEqual(
+            Supplement.scheduledDayCount(daysOfWeek: "once", from: earlyFrom, to: earlyTo, anchor: anchor, calendar: cal),
+            0,
+            "anchor outside window → 0"
+        )
+    }
+
     // MARK: - Helpers
 
     private func makeSupp(daysOfWeek: String) -> Supplement {

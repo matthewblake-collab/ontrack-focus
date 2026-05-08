@@ -516,17 +516,21 @@ final class NotificationManager: NSObject {
             let timing: String
             let customTime: String?
             let daysOfWeek: String?
+            let startDate: String?
+            let createdAt: Date
             enum CodingKeys: String, CodingKey {
                 case id, name, timing
                 case customTime = "custom_time"
                 case daysOfWeek = "days_of_week"
+                case startDate = "start_date"
+                case createdAt = "created_at"
             }
         }
 
         do {
             let supps: [SuppRecord] = try await supabase
                 .from("supplements")
-                .select("id, name, timing, custom_time, days_of_week")
+                .select("id, name, timing, custom_time, days_of_week, start_date, created_at")
                 .eq("user_id", value: userId.uuidString)
                 .eq("is_active", value: true)
                 .eq("reminder_enabled", value: true)
@@ -619,9 +623,18 @@ final class NotificationManager: NSObject {
                     continue
                 }
 
-                // Non-custom recurrence: existing single-fire today/tomorrow behaviour,
-                // gated by Supplement.isScheduled so weekday-CSV and "everyday" still apply.
-                guard Supplement.isScheduled(daysOfWeek: days, on: now, calendar: calendar) else { continue }
+                // Non-custom recurrence: single-fire today/tomorrow behaviour, gated by
+                // Supplement.isScheduled so weekday-CSV, "everyday", weekly|, fortnightly|,
+                // monthly|, and "once" all use the shared predicate.
+                let anchor: Date = {
+                    if let s = supp.startDate, let parsed = Supplement.parseStartDate(s, calendar: calendar) {
+                        return parsed
+                    }
+                    return supp.createdAt
+                }()
+                guard Supplement.isScheduled(daysOfWeek: days, on: now, anchor: anchor, calendar: calendar) else {
+                    continue
+                }
 
                 var fireComponents = calendar.dateComponents([.year, .month, .day], from: now)
                 fireComponents.hour = hour

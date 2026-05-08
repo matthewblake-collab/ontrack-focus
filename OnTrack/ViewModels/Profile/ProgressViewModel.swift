@@ -588,18 +588,21 @@ final class ProgressViewModel {
         }
     }
 
-    // Bug 3a: denominator now respects supplement.days_of_week. Supplement schedule
-    // format is either "everyday" or a CSV of weekday numbers (1=Sun … 7=Sat per
-    // Calendar.component(.weekday)).
+    // Bug 3a: denominator now respects supplement.days_of_week. Supports "everyday",
+    // weekday CSV, "custom|<ts1>,...", "weekly|<endTs>", "fortnightly|<endTs>",
+    // "monthly|<endTs>", and "once". Anchor for the recurrence rules that need one
+    // is start_date if set, else created_at.
     func fetchSupplementAdherence(userId: UUID, days: Int) async -> Double {
         struct SuppRow: Decodable {
             let id: UUID
             let daysOfWeek: String
             let createdAt: String
+            let startDate: String?
             enum CodingKeys: String, CodingKey {
                 case id
                 case daysOfWeek = "days_of_week"
                 case createdAt = "created_at"
+                case startDate = "start_date"
             }
         }
         struct SuppLogRow: Decodable {
@@ -611,7 +614,7 @@ final class ProgressViewModel {
         do {
             let supps: [SuppRow] = try await supabase
                 .from("supplements")
-                .select("id, days_of_week, created_at")
+                .select("id, days_of_week, created_at, start_date")
                 .eq("user_id", value: userId.uuidString)
                 .eq("is_active", value: true)
                 .eq("in_protocol", value: true)
@@ -657,6 +660,23 @@ final class ProgressViewModel {
                 return iso.date(from: s)
             }
 
+            // Schedule anchor (for weekly/fortnightly/monthly/once) is start_date if set,
+            // else the supplement's created_at.
+            func scheduleAnchor(for supp: SuppRow) -> Date {
+                if let s = supp.startDate, let parsed = Supplement.parseStartDate(s, calendar: calendar) {
+                    return parsed
+                }
+                return parseSuppCreatedAt(supp.createdAt) ?? windowStart
+            }
+
+            // True if `dow` looks like a weekday integer CSV (e.g. "2,5"). Reaches back
+            // to the fast path that uses the precomputed weekdayNumCounts.
+            func looksLikeWeekdayCSV(_ dow: String) -> Bool {
+                let parts = dow.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }
+                guard !parts.isEmpty else { return false }
+                return parts.allSatisfy { Int($0).map { (1...7).contains($0) } ?? false }
+            }
+
             var totalDenom = 0
             var totalNum = 0
             for supp in supps {
@@ -671,17 +691,7 @@ final class ProgressViewModel {
                 let denom: Int
                 if dow == "everyday" || dow.isEmpty {
                     denom = effectiveDays
-                } else if dow.hasPrefix("custom|") {
-                    // Custom-day supplements: count payload timestamps in [effectiveStart, today].
-                    // Without this branch the weekday-CSV parse below produces an empty target
-                    // set, denom = 0, and the supplement is silently hidden from progress stats.
-                    denom = Supplement.customScheduledDayCount(
-                        daysOfWeek: dow,
-                        from: effectiveStart,
-                        to: today,
-                        calendar: calendar
-                    )
-                } else {
+                } else if looksLikeWeekdayCSV(dow) {
                     let targets = Set(dow.split(separator: ",").compactMap { Int($0.trimmingCharacters(in: .whitespaces)) })
                     if effectiveStart == windowStart {
                         denom = targets.reduce(0) { $0 + (weekdayNumCounts[$1] ?? 0) }
@@ -694,6 +704,16 @@ final class ProgressViewModel {
                         }
                         denom = match
                     }
+                } else {
+                    // custom|, weekly|, fortnightly|, monthly|, once — generalised counter.
+                    // Anchor required by weekly/fortnightly/monthly/once; ignored by custom|.
+                    denom = Supplement.scheduledDayCount(
+                        daysOfWeek: dow,
+                        from: effectiveStart,
+                        to: today,
+                        anchor: scheduleAnchor(for: supp),
+                        calendar: calendar
+                    )
                 }
                 let num = min(logsBySupp[supp.id] ?? 0, denom)
                 totalDenom += denom
