@@ -489,6 +489,128 @@ final class OnTrackTests: XCTestCase {
         XCTAssertTrue(Supplement.expandWeekdaysToDates(weekdays: [2, 5], from: now, to: yesterday).isEmpty)
     }
 
+    // MARK: - Share-anchor round-trip + expired-schedule detection
+
+    /// A `weekly|<endTs>` supplement shared by the original creator must, after a
+    /// share→import round-trip, schedule on the same calendar days for the recipient.
+    /// Without `schedule_anchor` the recipient anchors on their own `created_at` and
+    /// the recurrence stride drifts.
+    func testShareAnchor_weekly_recipientGetsSameSchedule() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Australia/Brisbane") ?? .current
+
+        // Original creator anchors on Mon 2026-04-06 with a 12-week endTs.
+        var c = DateComponents(); c.year = 2026; c.month = 4; c.day = 6; c.hour = 9
+        let originalAnchor = cal.date(from: c)!
+        c.month = 6; c.day = 29
+        let endTsDate = cal.date(from: c)!
+        let dow = "weekly|\(endTsDate.timeIntervalSince1970)"
+
+        // Format anchor exactly as Supplement.scheduleAnchorString would.
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = cal.timeZone
+        let anchorStr = f.string(from: originalAnchor)
+
+        // Recipient parses schedule_anchor → uses it as their own start_date / anchor.
+        let parsedAnchor = Supplement.parseStartDate(anchorStr, calendar: cal)
+        XCTAssertNotNil(parsedAnchor)
+        XCTAssertEqual(parsedAnchor, cal.startOfDay(for: originalAnchor))
+
+        // Both creator and recipient must agree on which days are scheduled.
+        c.year = 2026; c.month = 4; c.day = 13; let mon2 = cal.date(from: c)!
+        c.day = 27; let mon4 = cal.date(from: c)!
+        c.day = 14; let tueOff = cal.date(from: c)!
+
+        XCTAssertTrue(Supplement.isScheduled(daysOfWeek: dow, on: mon2, anchor: parsedAnchor, calendar: cal),
+                      "recipient must schedule on Mon 2026-04-13 (anchor + 7d)")
+        XCTAssertTrue(Supplement.isScheduled(daysOfWeek: dow, on: mon4, anchor: parsedAnchor, calendar: cal),
+                      "recipient must schedule on Mon 2026-04-27 (anchor + 21d)")
+        XCTAssertFalse(Supplement.isScheduled(daysOfWeek: dow, on: tueOff, anchor: parsedAnchor, calendar: cal),
+                       "recipient must NOT schedule on Tue 2026-04-14 (off-stride)")
+    }
+
+    /// `scheduleHasExpired` must return true when a weekly|<endTs> with anchor in
+    /// the past has its endTs strictly before today's startOfDay.
+    func testShareAnchor_expiredWeekly_isDetected() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Australia/Brisbane") ?? .current
+        var c = DateComponents(); c.year = 2025; c.month = 1; c.day = 1; c.hour = 9
+        let oldAnchor = cal.date(from: c)!
+        c.month = 3; c.day = 31
+        let pastEnd = cal.date(from: c)!
+        let dow = "weekly|\(pastEnd.timeIntervalSince1970)"
+
+        c.year = 2026; c.month = 5; c.day = 8
+        let now = cal.date(from: c)!
+        XCTAssertTrue(
+            Supplement.scheduleHasExpired(daysOfWeek: dow, anchor: oldAnchor, on: now, calendar: cal),
+            "weekly schedule with endTs in 2025 must be expired in 2026"
+        )
+    }
+
+    /// `once` with anchor in the past is expired (importer would never see it fire).
+    func testShareAnchor_expiredOnce_isDetected() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Australia/Brisbane") ?? .current
+        var c = DateComponents(); c.year = 2025; c.month = 12; c.day = 1; c.hour = 9
+        let pastAnchor = cal.date(from: c)!
+        c.year = 2026; c.month = 5; c.day = 8
+        let now = cal.date(from: c)!
+
+        XCTAssertTrue(Supplement.scheduleHasExpired(daysOfWeek: "once", anchor: pastAnchor, on: now, calendar: cal))
+    }
+
+    /// `custom|...` with all timestamps in the past is expired.
+    func testShareAnchor_expiredCustom_isDetected() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Australia/Brisbane") ?? .current
+        var c = DateComponents(); c.year = 2025; c.month = 12; c.hour = 9
+        c.day = 1;  let d1 = cal.date(from: c)!
+        c.day = 15; let d2 = cal.date(from: c)!
+        let payload = "custom|\(d1.timeIntervalSince1970),\(d2.timeIntervalSince1970)"
+
+        c.year = 2026; c.month = 5; c.day = 8
+        let now = cal.date(from: c)!
+        XCTAssertTrue(Supplement.scheduleHasExpired(daysOfWeek: payload, anchor: nil, on: now, calendar: cal))
+    }
+
+    /// `custom|...` with at least one future timestamp is NOT expired.
+    func testShareAnchor_partiallyExpiredCustom_isNotExpired() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Australia/Brisbane") ?? .current
+        var c = DateComponents(); c.hour = 9
+        c.year = 2025; c.month = 12; c.day = 1; let past = cal.date(from: c)!
+        c.year = 2026; c.month = 5; c.day = 31; let future = cal.date(from: c)!
+        let payload = "custom|\(past.timeIntervalSince1970),\(future.timeIntervalSince1970)"
+
+        c.year = 2026; c.month = 5; c.day = 8
+        let now = cal.date(from: c)!
+        XCTAssertFalse(Supplement.scheduleHasExpired(daysOfWeek: payload, anchor: nil, on: now, calendar: cal))
+    }
+
+    /// `everyday` and weekday-CSV never expire — they have no end bound.
+    func testShareAnchor_everyday_neverExpires() {
+        XCTAssertFalse(Supplement.scheduleHasExpired(daysOfWeek: "everyday", anchor: nil, on: Date()))
+        XCTAssertFalse(Supplement.scheduleHasExpired(daysOfWeek: "2,5", anchor: nil, on: Date()))
+    }
+
+    /// `scheduleAnchorString` round-trip: a Supplement with `start_date = "2026-04-06"`
+    /// must serialize its anchor to the same string.
+    func testShareAnchor_anchorStringRoundTrips() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Australia/Brisbane") ?? .current
+        let supp = Supplement(
+            id: UUID(), userId: UUID(), name: "T", dose: nil, timing: "Morning",
+            customTime: nil, daysOfWeek: "weekly|0", notes: nil,
+            reminderEnabled: false, isActive: true, inProtocol: true,
+            stockQuantity: nil, stockUnits: nil, doseAmount: nil, doseUnits: nil,
+            startDate: "2026-04-06", createdAt: Date()
+        )
+        XCTAssertEqual(supp.scheduleAnchorString(calendar: cal), "2026-04-06")
+    }
+
     // MARK: - Helpers
 
     private func makeSupp(daysOfWeek: String) -> Supplement {

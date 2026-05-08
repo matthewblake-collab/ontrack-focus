@@ -258,8 +258,11 @@ struct ShareStackView: View {
 
         let code = String((0..<6).map { _ in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".randomElement()! })
 
-        // Bug 1: expanded from 6 → 9 fields so recipients actually get the full
-        // protocol (timing, schedule, dose + units, notes, reminder toggle, in_protocol).
+        // Expanded from 6 → 10 fields so recipients actually get the full protocol
+        // (timing, schedule, dose + units, notes, reminder toggle, in_protocol) plus the
+        // original schedule anchor (yyyy-MM-dd) so weekly/fortnightly/monthly/once
+        // recurrence math is preserved on import. Old payloads without
+        // schedule_anchor still parse — recipient falls back to its own created_at.
         struct SupplementEntry: Encodable {
             let name: String
             let timing: String
@@ -270,6 +273,7 @@ struct ShareStackView: View {
             let notes: String?
             let reminder_enabled: Bool?
             let in_protocol: Bool?
+            let schedule_anchor: String?
         }
 
         struct SharedStackInsert: Encodable {
@@ -289,7 +293,8 @@ struct ShareStackView: View {
                 dose_units: s.doseUnits,
                 notes: s.notes,
                 reminder_enabled: s.reminderEnabled,
-                in_protocol: s.inProtocol
+                in_protocol: s.inProtocol,
+                schedule_anchor: s.scheduleAnchorString()
             )
         }
 

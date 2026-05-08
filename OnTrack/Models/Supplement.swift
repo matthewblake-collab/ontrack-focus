@@ -62,6 +62,17 @@ struct Supplement: Codable, Identifiable {
         return createdAt
     }
 
+    /// yyyy-MM-dd serialization of `scheduleAnchor` — used by ShareStackView /
+    /// SupplementDetailView to embed the original creator's anchor in the shared
+    /// payload so recipients can re-anchor weekly/fortnightly/monthly/once.
+    func scheduleAnchorString(calendar: Calendar = .current) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = calendar.timeZone
+        return f.string(from: scheduleAnchor(calendar: calendar))
+    }
+
     /// Parses the yyyy-MM-dd `start_date` string into a Date pinned to startOfDay
     /// in the supplied calendar. Returns nil for unparseable strings.
     static func parseStartDate(_ s: String, calendar: Calendar = .current) -> Date? {
@@ -196,6 +207,44 @@ struct Supplement: Codable, Identifiable {
         let anchorDom = calendar.component(.day, from: anchorDay)
         let dayDom = calendar.component(.day, from: day)
         return anchorDom == dayDom
+    }
+
+    /// Returns true if the supplement's schedule is exhausted as of `date`. Used by
+    /// ImportStackView to flag shared supplements whose recurrence has already ended
+    /// for the recipient (so they import as `is_active = false` rather than silently
+    /// landing in the daily schedule with no remaining triggers).
+    ///
+    /// Per format:
+    /// - "everyday" / weekday CSV → never expires (false)
+    /// - "custom|<ts1>,..." → all timestamps strictly before startOfDay(date) → expired
+    /// - "weekly|<endTs>" / "fortnightly|..." / "monthly|..." → endTs strictly before
+    ///   startOfDay(date) → expired
+    /// - "once" → anchor strictly before startOfDay(date) → expired (anchor required;
+    ///   nil → false because we cannot determine)
+    static func scheduleHasExpired(
+        daysOfWeek: String,
+        anchor: Date? = nil,
+        on date: Date,
+        calendar: Calendar = .current
+    ) -> Bool {
+        let today = calendar.startOfDay(for: date)
+        if daysOfWeek == "everyday" || daysOfWeek.isEmpty { return false }
+        if daysOfWeek.hasPrefix("custom|") {
+            let payload = daysOfWeek.dropFirst("custom|".count)
+            let dates = payload.split(separator: ",").compactMap { TimeInterval($0) }
+            guard !dates.isEmpty else { return false }
+            return dates.allSatisfy { calendar.startOfDay(for: Date(timeIntervalSince1970: $0)) < today }
+        }
+        if let endTs = parseEndTimestamp(prefix: "weekly|", in: daysOfWeek)
+            ?? parseEndTimestamp(prefix: "fortnightly|", in: daysOfWeek)
+            ?? parseEndTimestamp(prefix: "monthly|", in: daysOfWeek) {
+            return calendar.startOfDay(for: Date(timeIntervalSince1970: endTs)) < today
+        }
+        if daysOfWeek == "once" {
+            guard let anchor = anchor else { return false }
+            return calendar.startOfDay(for: anchor) < today
+        }
+        return false
     }
 
     /// Expands a set of weekday integers (1=Sun…7=Sat per `Calendar.component(.weekday)`)

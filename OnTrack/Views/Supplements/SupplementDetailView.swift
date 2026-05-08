@@ -143,6 +143,7 @@ struct SupplementDetailView: View {
             let notes: String?
             let reminder_enabled: Bool?
             let in_protocol: Bool?
+            let schedule_anchor: String?
         }
         struct SharedStackInsert: Encodable {
             let code: String
@@ -161,7 +162,8 @@ struct SupplementDetailView: View {
             dose_units: supplement.doseUnits,
             notes: supplement.notes,
             reminder_enabled: supplement.reminderEnabled,
-            in_protocol: supplement.inProtocol
+            in_protocol: supplement.inProtocol,
+            schedule_anchor: supplement.scheduleAnchorString()
         )
         do {
             try await supabase

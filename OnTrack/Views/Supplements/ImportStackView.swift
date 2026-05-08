@@ -14,6 +14,7 @@ struct ImportStackView: View {
     @State private var selectedIds: Set<Int> = []
     @State private var isImporting = false
     @State private var importSuccess = false
+    @State private var expiredImportCount: Int = 0
 
     struct SharedStack {
         let code: String
@@ -243,6 +244,16 @@ struct ImportStackView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
+                if expiredImportCount > 0 {
+                    Label(
+                        "\(expiredImportCount) supplement\(expiredImportCount == 1 ? "" : "s") had an expired schedule and \(expiredImportCount == 1 ? "was" : "were") imported as inactive. Edit to re-activate.",
+                        systemImage: "exclamationmark.triangle.fill"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .multilineTextAlignment(.center)
+                    .padding(.top, 4)
+                }
             }
             .padding()
             .frame(maxWidth: .infinity)
@@ -295,10 +306,13 @@ struct ImportStackView: View {
         isImporting = true
 
         let toImport = selectedIds.sorted().map { stack.supplements[$0] }
+        let now = Date()
+        let calendar = Calendar.current
 
         do {
-            // Bug 1: decode the expanded 9-field payload. Old payloads (6 fields) still
-            // decode fine — all new fields are optional so legacy codes keep working.
+            // Decode the expanded payload. All new fields are optional so legacy codes
+            // (without schedule_anchor) keep working — recipient falls back to its own
+            // created_at when there's no original anchor to honour.
             struct SupplementImport: Encodable {
                 let user_id: String
                 let name: String
@@ -311,21 +325,42 @@ struct ImportStackView: View {
                 let notes: String?
                 let reminder_enabled: Bool
                 let in_protocol: Bool
+                let start_date: String?
             }
 
+            var expiredCount = 0
             for supp in toImport {
+                let dow = supp["days_of_week"] as? String ?? "everyday"
+                // Honour the original creator's anchor (start_date if they had one,
+                // else their created_at). Falls back to nil → recipient's own
+                // created_at takes over via Supplement.scheduleAnchor.
+                let anchorStr = supp["schedule_anchor"] as? String
+                let anchorDate = anchorStr.flatMap { Supplement.parseStartDate($0, calendar: calendar) }
+
+                // If the recurrence has already ended for the recipient, import as
+                // inactive so it doesn't pollute the daily schedule. User sees a
+                // count in the success card and can re-activate via Edit.
+                let expired = Supplement.scheduleHasExpired(
+                    daysOfWeek: dow,
+                    anchor: anchorDate,
+                    on: now,
+                    calendar: calendar
+                )
+                if expired { expiredCount += 1 }
+
                 let entry = SupplementImport(
                     user_id: userId.uuidString,
                     name: supp["name"] as? String ?? "",
                     timing: supp["timing"] as? String ?? "morning",
                     custom_time: supp["custom_time"] as? String,
-                    days_of_week: supp["days_of_week"] as? String ?? "everyday",
-                    is_active: true,
+                    days_of_week: dow,
+                    is_active: !expired,
                     dose_amount: supp["dose_amount"] as? Double,
                     dose_units: supp["dose_units"] as? String,
                     notes: supp["notes"] as? String,
                     reminder_enabled: supp["reminder_enabled"] as? Bool ?? false,
-                    in_protocol: supp["in_protocol"] as? Bool ?? false
+                    in_protocol: supp["in_protocol"] as? Bool ?? false,
+                    start_date: anchorStr
                 )
                 try await supabase
                     .from("supplements")
@@ -336,7 +371,10 @@ struct ImportStackView: View {
             if let uid = appState.currentUser?.id {
                 await viewModel.fetchSupplements(userId: uid)
             }
-            await MainActor.run { importSuccess = true }
+            await MainActor.run {
+                expiredImportCount = expiredCount
+                importSuccess = true
+            }
         } catch {
             await MainActor.run { errorMessage = "Import failed. Please try again." }
         }
