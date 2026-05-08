@@ -404,6 +404,91 @@ final class OnTrackTests: XCTestCase {
         XCTAssertEqual(parsed?.count, 2)
     }
 
+    // MARK: - Quick-fill weekday expansion (CustomSupplementDatePicker)
+
+    /// Mon (weekday 2) + Thu (weekday 5) over 4 weeks → 8 generated dates.
+    func testSupplement_expandWeekdaysToDates_monAndThu_4weeks_returns8() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Australia/Brisbane") ?? .current
+        var c = DateComponents(); c.year = 2026; c.month = 5; c.hour = 9
+        c.day = 1;  let from = cal.date(from: c)!  // Fri May 1
+        c.day = 28; let to = cal.date(from: c)!    // Thu May 28
+        let out = Supplement.expandWeekdaysToDates(weekdays: [2, 5], from: from, to: to, calendar: cal)
+        XCTAssertEqual(out.count, 8, "4 Mondays + 4 Thursdays")
+        XCTAssertEqual(out, out.sorted(), "must be sorted ascending")
+        // Confirm the actual days are right.
+        let days = out.map { cal.component(.day, from: $0) }
+        XCTAssertEqual(days, [4, 7, 11, 14, 18, 21, 25, 28])
+    }
+
+    /// Quick-fill must merge generated dates with existing manual picks (no replacement).
+    /// Simulates: user manually taps two Wed dates, then quick-fills Mon+Thu — all
+    /// 10 dates should be present, sorted, deduped.
+    func testSupplement_quickFillMerge_preservesExistingManualPicks() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Australia/Brisbane") ?? .current
+        var c = DateComponents(); c.year = 2026; c.month = 5; c.hour = 9
+        c.day = 6;  let manualWed1 = cal.date(from: c)! // Wed May 6
+        c.day = 13; let manualWed2 = cal.date(from: c)! // Wed May 13
+        var existing: [Date] = [manualWed1, manualWed2]
+
+        c.day = 1;  let from = cal.date(from: c)!
+        c.day = 28; let to = cal.date(from: c)!
+        let generated = Supplement.expandWeekdaysToDates(weekdays: [2, 5], from: from, to: to, calendar: cal)
+
+        // Merge logic mirrors CustomSupplementDatePicker.applyQuickFill.
+        for date in generated {
+            if !existing.contains(where: { cal.isDate($0, inSameDayAs: date) }) {
+                existing.append(date)
+            }
+        }
+        existing.sort()
+
+        XCTAssertEqual(existing.count, 10, "8 generated + 2 preserved manual Wed picks")
+        XCTAssertTrue(existing.contains { cal.isDate($0, inSameDayAs: manualWed1) }, "Wed May 6 must survive")
+        XCTAssertTrue(existing.contains { cal.isDate($0, inSameDayAs: manualWed2) }, "Wed May 13 must survive")
+    }
+
+    /// Idempotence: running quick-fill twice with the same params must not create dupes.
+    func testSupplement_quickFillMerge_isIdempotentForSameParams() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Australia/Brisbane") ?? .current
+        var c = DateComponents(); c.year = 2026; c.month = 5; c.hour = 9
+        c.day = 1;  let from = cal.date(from: c)!
+        c.day = 28; let to = cal.date(from: c)!
+        var existing: [Date] = []
+
+        for _ in 0..<2 {
+            let generated = Supplement.expandWeekdaysToDates(weekdays: [2, 5], from: from, to: to, calendar: cal)
+            for date in generated {
+                if !existing.contains(where: { cal.isDate($0, inSameDayAs: date) }) {
+                    existing.append(date)
+                }
+            }
+        }
+        XCTAssertEqual(existing.count, 8, "second pass must be a no-op")
+    }
+
+    /// Pathological inputs: 5-year window of all 7 weekdays → 365 cap kicks in.
+    func testSupplement_expandWeekdaysToDates_capsAt365() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Australia/Brisbane") ?? .current
+        let from = cal.date(from: DateComponents(year: 2026, month: 1, day: 1))!
+        let to = cal.date(from: DateComponents(year: 2031, month: 1, day: 1))!
+        let out = Supplement.expandWeekdaysToDates(weekdays: [1, 2, 3, 4, 5, 6, 7], from: from, to: to, calendar: cal)
+        XCTAssertEqual(out.count, 365, "limit must cap pathological ranges")
+    }
+
+    func testSupplement_expandWeekdaysToDates_emptyWeekdays_returnsEmpty() {
+        XCTAssertTrue(Supplement.expandWeekdaysToDates(weekdays: [], from: Date(), to: Date()).isEmpty)
+    }
+
+    func testSupplement_expandWeekdaysToDates_endBeforeStart_returnsEmpty() {
+        let now = Date()
+        let yesterday = now.addingTimeInterval(-86400)
+        XCTAssertTrue(Supplement.expandWeekdaysToDates(weekdays: [2, 5], from: now, to: yesterday).isEmpty)
+    }
+
     // MARK: - Helpers
 
     private func makeSupp(daysOfWeek: String) -> Supplement {

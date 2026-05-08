@@ -198,6 +198,37 @@ struct Supplement: Codable, Identifiable {
         return anchorDom == dayDom
     }
 
+    /// Expands a set of weekday integers (1=Sun…7=Sat per `Calendar.component(.weekday)`)
+    /// into every concrete date in `[startOfDay(start), startOfDay(end)]` whose weekday
+    /// is in the set. Used by `CustomSupplementDatePicker`'s quick-fill control.
+    ///
+    /// - Returns sorted ascending, deduplicated by calendar day, capped at `limit` (default
+    ///   365 to guard against pathological date ranges).
+    /// - Empty `weekdays` → `[]`. End before start → `[]`.
+    static func expandWeekdaysToDates(
+        weekdays: Set<Int>,
+        from start: Date,
+        to end: Date,
+        limit: Int = 365,
+        calendar: Calendar = .current
+    ) -> [Date] {
+        guard !weekdays.isEmpty else { return [] }
+        let startDay = calendar.startOfDay(for: start)
+        let endDay = calendar.startOfDay(for: end)
+        guard startDay <= endDay else { return [] }
+        let totalDays = (calendar.dateComponents([.day], from: startDay, to: endDay).day ?? 0) + 1
+        var out: [Date] = []
+        out.reserveCapacity(min(totalDays, limit))
+        for offset in 0..<totalDays {
+            if out.count >= limit { break }
+            guard let d = calendar.date(byAdding: .day, value: offset, to: startDay) else { continue }
+            if weekdays.contains(calendar.component(.weekday, from: d)) {
+                out.append(d)
+            }
+        }
+        return out
+    }
+
     /// Parses a `custom|<ts1>,<ts2>,…` payload into the corresponding `Date`s, sorted
     /// ascending. Returns `nil` for any string without the `custom|` prefix so callers
     /// can branch cleanly. Mirrors the parse path in `EditSupplementView` so a serialize→

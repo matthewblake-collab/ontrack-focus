@@ -127,7 +127,8 @@ struct EditSupplementView: View {
                                         .foregroundStyle(.secondary)
                                     CustomSupplementDatePicker(
                                         selectedDates: $customDates,
-                                        themeManager: themeManager
+                                        themeManager: themeManager,
+                                        startBound: viewModel.newStartDateEnabled ? viewModel.newStartDate : nil
                                     )
                                     if !customDates.isEmpty {
                                         Text("\(customDates.count) date\(customDates.count == 1 ? "" : "s") selected")
