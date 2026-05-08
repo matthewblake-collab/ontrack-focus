@@ -38,6 +38,28 @@ struct Supplement: Codable, Identifiable {
         case startDate = "start_date"
         case createdAt = "created_at"
     }
+
+    /// Returns true if this supplement is scheduled to appear on `date`.
+    /// Handles all supported `daysOfWeek` formats:
+    /// - "everyday" / empty → always true
+    /// - "1,2,3" (weekday CSV, 1=Sun…7=Sat) → matches if today's weekday is in the set
+    /// - "custom|<ts1>,<ts2>,…" (UNIX timestamps from CustomSupplementDatePicker) → matches
+    ///   if any timestamp falls on the same calendar day as `date`
+    /// - All other formats (weekly|<endTs>, fortnightly|…, monthly|…, once) fall through to
+    ///   the legacy CSV path and return false unless they happen to contain a matching weekday.
+    func isScheduled(on date: Date, calendar: Calendar = .current) -> Bool {
+        let days = daysOfWeek
+        if days == "everyday" || days.isEmpty { return true }
+        if days.hasPrefix("custom|") {
+            let payload = days.dropFirst("custom|".count)
+            return payload.split(separator: ",").contains { chunk in
+                guard let ts = TimeInterval(chunk) else { return false }
+                return calendar.isDate(Date(timeIntervalSince1970: ts), inSameDayAs: date)
+            }
+        }
+        let weekday = String(calendar.component(.weekday, from: date))
+        return days.split(separator: ",").contains { String($0) == weekday }
+    }
 }
 
 struct SupplementLog: Codable, Identifiable {
