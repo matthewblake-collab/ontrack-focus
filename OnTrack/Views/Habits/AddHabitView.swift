@@ -223,6 +223,7 @@ struct AddHabitView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
+                        AnalyticsManager.shared.track(.buttonTapped, properties: ["button_name": "add_habit_save", "screen": "AddHabit"])
                         showVisibilityPrompt = true
                     }
                     .foregroundColor(name.isEmpty ? .secondary : themeManager.currentTheme.primary)

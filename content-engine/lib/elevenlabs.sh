@@ -1,31 +1,15 @@
 #!/bin/bash
 # ElevenLabs TTS helper for OnTrack content pipeline.
-# Voice rotation: Hans → Jordan → Dave → Charlotte → Emma → Hannah.
+# Voice: Jordan — locked permanently (ID 4uJW3zTppOdNDWtKUtux).
 # Settings pinned: speed 1.0, style 0.5, stability 0.5, similarity_boost 0.75.
 
 set -euo pipefail
 
-VOICE_ORDER=(
-  "4yye0QE5YPsKbMOCGGlj"  # Hans Wilmar
-  "4uJW3zTppOdNDWtKUtux"  # Jordan
-  "on7De0nZUAc9uGezUxS6"  # Dave
-  "XEQBC9sleaE3f5ff82UR"  # Charlotte
-  "56bWURjYFHyYyVf490Dp"  # Emma
-  "M7ya1YbaeFaPXljg9BpK"  # Hannah
-)
+JORDAN_VOICE_ID="4uJW3zTppOdNDWtKUtux"
 
-# next_voice_id <last_voice_id>
-# If last is empty or unrecognised, returns Hans.
+# next_voice_id — always returns Jordan regardless of last voice argument.
 next_voice_id() {
-  local last="${1:-}"
-  local i
-  for i in "${!VOICE_ORDER[@]}"; do
-    if [ "${VOICE_ORDER[$i]}" = "$last" ]; then
-      echo "${VOICE_ORDER[$(( (i + 1) % ${#VOICE_ORDER[@]} ))]}"
-      return
-    fi
-  done
-  echo "${VOICE_ORDER[0]}"
+  echo "$JORDAN_VOICE_ID"
 }
 
 # tts_render <text> <voice_id> <out_path>

@@ -57,3 +57,6 @@ project.pbxproj.bak
 
 # Large image assets (use LFS if needed)
 *.heic
+
+# System 06 UI scratch dir
+.ui-system/

@@ -12,6 +12,7 @@ final class AnalyticsManager {
         case sessionRsvp = "session_rsvp"
         case habitLogged = "habit_logged"
         case checkinSubmitted = "checkin_submitted"
+        case buttonTapped = "button_tapped"
     }
 
     private let optOutKey = "analytics_opt_out"
@@ -30,7 +31,8 @@ final class AnalyticsManager {
 
         let config = PostHogConfig(apiKey: apiKey, host: host)
         config.captureApplicationLifecycleEvents = true
-        config.sessionReplay = false
+        config.sessionReplay = true
+        config.sessionReplayConfig.maskAllTextInputs = true
         PostHogSDK.shared.setup(config)
 
         if !isEnabled {

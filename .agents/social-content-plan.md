@@ -2,9 +2,9 @@
 
 **Platforms:** Instagram · Facebook · TikTok  
 **Username:** @ontrack_focus  
-**Stage:** TestFlight live → App Store launch  
+**Stage:** Live on the App Store  
 **Constraint:** Solo founder, under 3 hours/week  
-**Last updated:** April 2026
+**Last updated:** May 2026
 
 ---
 
@@ -23,7 +23,7 @@ Matt's personal journey is the #1 differentiator. Ex-rugby league player, 80-hou
 Topics: the rugby league story, working away from family, what got Matt back, why he built the app, decisions made, features rejected, what solo founder life looks like.
 
 ### Pillar 3 — Feature Drops & App Updates (20%)
-Every new build = a content moment. Short demo videos (screen record or Remotion-generated), UI reveals, "what just shipped" posts. This drives TestFlight downloads and App Store hype. Fast to produce, high trust signal.
+Every new build = a content moment. Short demo videos (screen record or Remotion-generated), UI reveals, "what just shipped" posts. This drives App Store downloads. Fast to produce, high trust signal.
 
 Topics: new feature walkthroughs, before/after UI improvements, "why we built this" explainers, build changelogs in human language.
 
@@ -33,7 +33,7 @@ Value-first content that attracts the audience before they know about the app. T
 Topics: habit stacking, supplement timing, sleep tracking, why streaks work, how to build a morning routine, what consistency actually looks like, AI wellness insights.
 
 ### Pillar 5 — Community & Social Proof (10%)
-TestFlight tester shoutouts, group milestones, community wins. Builds the tribe and creates FOMO for people not yet in the app.
+Early user shoutouts, group milestones, community wins. Builds the tribe and creates FOMO for people not yet in the app.
 
 Topics: tester stories, screenshots of streaks, group session check-ins, quote/testimonials from real users, "look what this group is doing."
 
@@ -63,7 +63,7 @@ Repurpose Instagram Reels (same video, no watermark, native upload). Add TikTok-
 **Best times:** 7–9am and 7–9pm AEST.
 
 ### Facebook — 2–3 posts/week
-Lower production effort. Repurpose Instagram posts. Focus on the slightly older demographic and local Port Macquarie community. Consider creating a private Facebook Group for TestFlight testers — high-value community play.
+Lower production effort. Repurpose Instagram posts. Focus on the slightly older demographic and local Port Macquarie community. Consider creating a private Facebook Group for early users — high-value community play.
 
 | Format | Frequency |
 |--------|-----------|
@@ -121,7 +121,7 @@ Just shipped: [feature name].
 [One sentence on why it matters / what problem it solves.]
 [One sentence on what's next or a small honest detail about building it.]
 
-OnTrack is free on TestFlight → link in bio.
+OnTrack is free on the App Store — link in bio.
 ```
 
 ### Step 3 — Post across platforms (10 min)
@@ -167,7 +167,7 @@ I played professional rugby league and never quite made it. Looking back, I know
 
 Years later I was working 80-hour weeks away from my family, not looking after myself at all. What got me back wasn't a program. It was two mates in the same spot who wouldn't let me quit.
 
-That's what OnTrack is. Free on TestFlight — link in bio.
+That's what OnTrack is. Free on the App Store — link in bio.
 
 #accountability #habittracker #ontrackfocus #wellness #consistency
 ```
@@ -186,7 +186,7 @@ That's the whole idea behind OnTrack.
 
 It's not about motivation. It's about having people around you who notice when you go quiet.
 
-Free on TestFlight → link in bio.
+Free on the App Store — link in bio.
 
 #accountability #showup #habittracking #groupfitness #ontrackfocus
 ```
@@ -205,7 +205,7 @@ Just shipped: [feature name].
 
 Built this because [honest reason — what was broken, what users asked for].
 
-Every build makes it tighter. OnTrack is free on TestFlight — link in bio.
+Every build makes it tighter. OnTrack is free on the App Store — link in bio.
 
 #buildinpublic #appdev #iosapp #ontrackfocus #indiedev
 ```
@@ -226,7 +226,7 @@ Type 2: You've been saying "I'll start Monday" for the last six months. You're f
 
 Both of you are welcome here.
 
-Free on TestFlight → link in bio.
+Free on the App Store — link in bio.
 
 #habittracker #wellness #accountability #ontrackfocus #getstarted
 ```
@@ -243,7 +243,7 @@ I used to buy supplements and forget about them within two weeks. Not because I 
 
 OnTrack shows your full stack every morning. One tap per supplement. Your streak doesn't lie.
 
-Free on TestFlight → link in bio.
+Free on the App Store — link in bio.
 
 #supplements #supplementstack #wellness #biohacking #ontrackfocus
 ```
@@ -266,7 +266,7 @@ Here's what's next.
 
 [1-2 sentences on roadmap]
 
-If you want to be part of it — TestFlight is free. Link in bio.
+If you want to be part of it — OnTrack is free on the App Store. Link in bio.
 
 #buildinpublic #solofounder #indiedev #iosapp #ontrackfocus
 ```
@@ -287,7 +287,7 @@ That's what a good group does. It's not about competition. It's about the fact t
 
 That's the whole mechanic behind OnTrack groups.
 
-Free on TestFlight → link in bio.
+Free on the App Store — link in bio.
 
 #accountability #groupfitness #habittracker #ontrackfocus #community
 ```
@@ -308,7 +308,7 @@ After a few weeks, OnTrack shows you the pattern — what affects your energy, w
 
 Most people think they know how they're doing. The data usually says something different.
 
-Free on TestFlight → link in bio.
+Free on the App Store — link in bio.
 
 #mentalhealth #wellbeing #sleeptracking #selfimprovement #ontrackfocus
 ```
@@ -325,11 +325,11 @@ This is what Day [X] looks like.
 
 [Screenshot of streak or group achievement]
 
-[Tester name / "One of our TestFlight testers"] hasn't missed a session in [X] weeks.
+[User name / "One of our users"] hasn't missed a session in [X] weeks.
 
 That's not motivation. That's a system that makes it harder to stop than to keep going.
 
-Want in? TestFlight is free — link in bio.
+Want in? OnTrack is free — link in bio.
 
 #streak #accountability #habits #ontrackfocus #showup
 ```
@@ -342,7 +342,7 @@ Want in? TestFlight is free — link in bio.
 
 **Caption:**
 ```
-TestFlight is free. App Store is coming soon.
+Available free on the App Store.
 
 Get in now — you get every update as it ships and your feedback actually changes what gets built next.
 
@@ -364,7 +364,7 @@ Use 5–8 per post. Rotate sets to avoid repetition.
 `#habittracker` `#wellness` `#groupfitness` `#consistency` `#selfimprovement` `#morningroutine` `#biohacking` `#supplementstack`
 
 **App/founder:**
-`#buildinpublic` `#iosapp` `#indiedev` `#solofounder` `#appdev` `#testflight`
+`#buildinpublic` `#iosapp` `#indiedev` `#solofounder` `#appdev`
 
 **Motivational:**
 `#habits` `#getstarted` `#noexcuses` `#showupeveryday` `#mentalhealth`
@@ -373,12 +373,14 @@ Use 5–8 per post. Rotate sets to avoid repetition.
 
 ## 8. App Store Launch Content Plan
 
+> [NOTE: Original launch sequence not executed. See ~/.claude/CLAUDE.md or session log for retroactive May 2026 catch-up campaign.]
+
 When the App Store launch date is confirmed, run this sequence:
 
 | Day | Platform | Content |
 |-----|----------|---------|
 | L-14 | All | "It's coming. Two weeks." — teaser post |
-| L-7 | All | "One week. Get on TestFlight before it's gone." |
+| L-7 | All | "One week. Download free on the App Store." |
 | L-3 | Instagram Stories | "3 days. Here's what you'll see on Day 1." |
 | L-1 | All | "Tomorrow." — single line, no caption |
 | Launch Day AM | All | "It's live." — App Store link, Remotion launch video |
@@ -394,6 +396,6 @@ When the App Store launch date is confirmed, run this sequence:
 1. **Always write in Matt's voice** — first person, direct, personal. Never "the app" or "the team."
 2. **Never preachy** — don't tell people what they should be doing. Stand beside them.
 3. **Real beats polished** — a talking-head Reel from the car beats a studio-produced promo.
-4. **Every post has one job** — either drive to TestFlight/App Store OR build trust. Not both at once.
+4. **Every post has one job** — either drive to the App Store OR build trust. Not both at once.
 5. **Consistency over virality** — show up every week. The algorithm rewards regularity more than one big post.
 6. **No watermarks on TikTok** — always native-upload or use SnapTik to strip IG watermarks.

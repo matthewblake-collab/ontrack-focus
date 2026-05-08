@@ -2,6 +2,11 @@
 paths: ["**/*.swift"]
 ---
 
+## App Architecture
+- SwiftUI + MVVM + Supabase
+- Entry point: `OnTrackApp.swift`
+- Root flow: LaunchScreenView → ContentView → OnboardingView (if needed) → MainTabView (if authed)
+
 ## Observable pattern rules
 Two observable patterns exist and must not be mixed.
 

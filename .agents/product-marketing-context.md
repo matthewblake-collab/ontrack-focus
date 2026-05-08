@@ -3,10 +3,10 @@
 ## Product
 - **Name:** OnTrack Focus
 - **Platform:** iOS (SwiftUI)
-- **Stage:** Live on TestFlight, approaching App Store submission
+- **Stage:** Live on the App Store (iOS) since 19 April 2026
 - **Developer:** Solo founder, Port Macquarie, NSW, Australia
 - **Website:** ontrack-focus.com
-- **TestFlight:** https://testflight.apple.com/join/q65zPgbv
+<!-- TODO: replace with App Store URL — https://apps.apple.com/app/ontrack-focus/id[ID] -->
 
 ## What It Is
 OnTrack Focus is a wellness and group accountability app for iOS. It helps users build habits, track supplements, log daily check-ins, and stay accountable through group sessions and a social friends layer.
@@ -38,10 +38,10 @@ Motivating, direct, no fluff. Confident without being aggressive. Speaks to two 
 Habitica, Streaks, HabitNow, generic habit trackers. OnTrack differentiates through the combination of group accountability + supplement tracking + mental health check-ins in one app.
 
 ## Primary CTA
-Download on TestFlight (moving to App Store soon)
+Download on the App Store
 
 ## Business Model
-Free during TestFlight. Monetisation TBD — likely freemium with premium features unlocked via subscription.
+Free on the App Store. Monetisation TBD — likely freemium with premium features unlocked via subscription.
 
 ## Key Messages
 - "Show up for your goals — together"

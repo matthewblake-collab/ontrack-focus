@@ -139,14 +139,13 @@ WHERE id = [script_id];
 
 For each scripted video:
 
-### Pick next voice
+### Pick voice
 
 ```bash
-LAST_VOICE=$(mcp_supabase_execute_sql "SELECT voice_id FROM content_scripts WHERE voice_id IS NOT NULL ORDER BY created_at DESC LIMIT 1;" | jq -r '.[0].voice_id // empty')
-VOICE_ID=$(bash content-engine/lib/elevenlabs.sh next "$LAST_VOICE")
+VOICE_ID=$(bash content-engine/lib/elevenlabs.sh next)
 ```
 
-Rotation order: Hans Wilmar → Jordan → Dave → Charlotte → Emma → Hannah. First-ever run defaults to Hans.
+Voice: Jordan — locked permanently (ID `4uJW3zTppOdNDWtKUtux`). No rotation.
 
 ### Render mp3
 

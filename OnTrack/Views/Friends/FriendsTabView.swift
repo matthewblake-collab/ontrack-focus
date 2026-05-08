@@ -368,10 +368,13 @@ struct FriendsTabView: View {
     func friendshipStatus(for userId: String) -> String? {
         let all = friendsVM.friends + friendsVM.pendingReceived + friendsVM.pendingSent
         let lowerId = userId.lowercased()
+        let cId = currentUserID.lowercased()
         if let match = all.first(where: {
-            $0.requesterId.lowercased() == lowerId || $0.receiverId.lowercased() == lowerId
+            let rId = $0.requesterId.lowercased()
+            let rcId = $0.receiverId.lowercased()
+            return (rId == lowerId && rcId == cId) || (rcId == lowerId && rId == cId)
         }) {
-            return match.status == "accepted" ? "friends" : (match.requesterId.lowercased() == currentUserID.lowercased() ? "sent" : "received")
+            return match.status == "accepted" ? "friends" : (match.requesterId.lowercased() == cId ? "sent" : "received")
         }
         return nil
     }

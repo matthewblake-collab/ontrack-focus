@@ -32,6 +32,7 @@ struct CreateGroupView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Create") {
+                        AnalyticsManager.shared.track(.buttonTapped, properties: ["button_name": "create_group_submit", "screen": "CreateGroup"])
                         Task {
                             guard let userId = appState.currentUser?.id else { return }
                             await viewModel.createGroup(userId: userId)

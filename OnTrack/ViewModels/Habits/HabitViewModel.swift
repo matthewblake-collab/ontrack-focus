@@ -487,21 +487,23 @@ class HabitViewModel: ObservableObject {
         }
     }
 
-    func updateHabit(_ habit: Habit, name: String, targetCount: Int?, isPrivate: Bool = false) async {
+    func updateHabit(_ habit: Habit, name: String, targetCount: Int?, isPrivate: Bool = false, visibleToFriends: Bool = false) async {
         struct HabitUpdate: Encodable {
             let name: String
             let targetCount: Int?
             let isPrivate: Bool
+            let visibleToFriends: Bool
             enum CodingKeys: String, CodingKey {
                 case name
                 case targetCount = "target_count"
                 case isPrivate = "is_private"
+                case visibleToFriends = "visible_to_friends"
             }
         }
         do {
             let updated: Habit = try await supabase
                 .from("habits")
-                .update(HabitUpdate(name: name, targetCount: targetCount, isPrivate: isPrivate))
+                .update(HabitUpdate(name: name, targetCount: targetCount, isPrivate: isPrivate, visibleToFriends: visibleToFriends))
                 .eq("id", value: habit.id.uuidString)
                 .select()
                 .single()

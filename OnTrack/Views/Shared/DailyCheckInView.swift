@@ -216,6 +216,7 @@ struct DailyCheckInView: View {
 
                     // Submit
                     Button {
+                        AnalyticsManager.shared.track(.buttonTapped, properties: ["button_name": "checkin_submit", "screen": "DailyCheckIn"])
                         guard let userId = appState.currentUser?.id else {
                             print("❌ Check-in submit failed: currentUser is nil")
                             return
@@ -258,6 +259,7 @@ struct DailyCheckInView: View {
             }
         }
         .onAppear {
+            AnalyticsManager.shared.screen("DailyCheckIn")
             vm.prefillFromHealthKit()
         }
     }

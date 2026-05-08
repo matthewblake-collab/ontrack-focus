@@ -315,6 +315,7 @@ struct EditHabitView: View {
     @State private var hasTarget: Bool
     @State private var targetCount: Int
     @State private var isPrivate: Bool
+    @State private var visibleToFriends: Bool
 
     init(habit: Habit, viewModel: HabitViewModel) {
         self.habit = habit
@@ -323,6 +324,7 @@ struct EditHabitView: View {
         _hasTarget = State(initialValue: habit.targetCount != nil)
         _targetCount = State(initialValue: habit.targetCount ?? 1)
         _isPrivate = State(initialValue: habit.isPrivate)
+        _visibleToFriends = State(initialValue: habit.visibleToFriends)
     }
 
     @ViewBuilder
@@ -366,6 +368,14 @@ struct EditHabitView: View {
                                     : "Friends will see your streak and habit name.")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
+                                Divider()
+                                Toggle("Visible to friends' feed", isOn: $visibleToFriends)
+                                    .tint(themeManager.currentTheme.primary)
+                                Text(visibleToFriends
+                                    ? "Your completions will appear in friends' feeds."
+                                    : "Completions won't appear in friends' feeds.")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
                             }
                         }
                     }
@@ -386,7 +396,8 @@ struct EditHabitView: View {
                                 habit,
                                 name: name,
                                 targetCount: hasTarget ? targetCount : nil,
-                                isPrivate: isPrivate
+                                isPrivate: isPrivate,
+                                visibleToFriends: visibleToFriends
                             )
                             dismiss()
                         }

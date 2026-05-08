@@ -18,6 +18,25 @@ Read these files — they are non-negotiable:
 
 ---
 
+## Step 0 — Calculate target script length from video duration
+
+If a video file path is provided:
+  Run: `ffprobe -v quiet -show_entries format=duration -of csv=p=0 "<video_path>"`
+  This returns duration in seconds (e.g. 24.5)
+
+  Calculate:
+    max_words = duration_seconds * 2.5   (ElevenLabs Jordan voice ≈ 150wpm = 2.5 words/sec)
+    target_words = round(max_words * 0.90)   (90% of max — close but won't overflow)
+
+  Print: `"Video: Xs → target script: Y words (max Z)"`
+
+  Use `target_words` as the hard cap when writing the script in Step 3.
+
+If no video file path is provided:
+  Default to `target_words = 60` (≈24s video)
+
+---
+
 ## Step 1 — Pull Ideated Scripts
 
 Query Supabase:
@@ -62,7 +81,7 @@ For each script, produce a filming card:
 - **Platform:** [primary platform]
 - **Audience:** MACRO / MICRO / BOTH
 - **Pillar:** [content pillar]
-- **Estimated length:** [15s / 30s / 45s / 60s]
+- **Estimated length:** ~Xs (matched to video duration)
 - **Format:** [Screen record / Text overlay / Mixed] — all video is screen recording of the OnTrack iOS app + AI voiceover (ElevenLabs) composed in Remotion. No talking-head or on-camera founder formats.
 
 ## Hook (say this first)
@@ -99,11 +118,12 @@ For each script, produce a filming card:
 
 ### Script Rules
 
-1. Total speaking time: 15-60 seconds. If longer, cut.
+1. Total word count must not exceed `target_words` (calculated in Step 0; default 60 if no video provided)
 2. Every point must be one sentence. If it takes two, the point is too broad.
-3. Point 3 must connect to OnTrack specifically — but naturally, not forced
-4. Body text must pass the voice check against `scripting-voice.md`
-5. Visuals must be specific — "show the app" is not enough. Which screen? Which feature?
+3. Aim for `target_words` — not shorter, not longer
+4. Point 3 must connect to OnTrack specifically — but naturally, not forced
+5. Body text must pass the voice check against `scripting-voice.md`
+6. Visuals must be specific — "show the app" is not enough. Which screen? Which feature?
 
 ---
 

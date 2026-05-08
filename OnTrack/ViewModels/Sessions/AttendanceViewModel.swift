@@ -69,6 +69,7 @@ final class AttendanceViewModel {
                 await fetchAttendance(sessionId: sessionId, groupId: groupId)
             }
             if attended {
+                NotificationManager.shared.cancelStreakNotification(for: sessionId)
                 if let member = members.first(where: { $0.userId == userId }) {
                     let newStreak = member.sessionStreak + 1
                     let newBest = max(newStreak, member.bestStreak)

@@ -267,7 +267,7 @@ struct GroupListView: View {
             .onboardingTooltip(screen: "groups", title: "Your Groups", message: "Create or join groups with friends and teammates. Share sessions, track attendance and stay accountable together.", icon: "person.3.fill")
         }
         .onAppear {
-            AnalyticsManager.shared.screen("Groups")
+            AnalyticsManager.shared.screen("GroupList")
         }
     }
 }
