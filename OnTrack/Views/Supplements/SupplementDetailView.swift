@@ -38,7 +38,10 @@ struct SupplementDetailView: View {
                 HStack {
                     Text("Schedule")
                     Spacer()
-                    Text(supplement.daysOfWeek == "everyday" ? "Every day" : "Custom schedule")
+                    // Reuses Supplement.scheduleLabel so this row matches the protocol
+                    // card on the Supps tab. Examples: "Mon, Thu", "Weekly until 31 May",
+                    // "Once on 15 May", "8 dates".
+                    Text(supplement.scheduleLabel())
                         .foregroundStyle(.secondary)
                 }
                 if let qty = supplement.stockQuantity {

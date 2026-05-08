@@ -611,6 +611,81 @@ final class OnTrackTests: XCTestCase {
         XCTAssertEqual(supp.scheduleAnchorString(calendar: cal), "2026-04-06")
     }
 
+    // MARK: - scheduleLabel — every recurrence format produces the expected human string
+
+    func testScheduleLabel_everyday() {
+        XCTAssertEqual(makeSupp(daysOfWeek: "everyday").scheduleLabel(), "Every day")
+        XCTAssertEqual(makeSupp(daysOfWeek: "").scheduleLabel(), "Every day")
+    }
+
+    func testScheduleLabel_weekdayCSV() {
+        XCTAssertEqual(makeSupp(daysOfWeek: "2,5").scheduleLabel(), "Mon, Thu")
+        XCTAssertEqual(makeSupp(daysOfWeek: "1,7").scheduleLabel(), "Sun, Sat")
+    }
+
+    func testScheduleLabel_customCollapsesToWeekdayList() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Australia/Brisbane") ?? .current
+        // 4 Mondays + 4 Thursdays in May 2026 — ≤4 distinct weekdays → "Mon, Thu".
+        var c = DateComponents(); c.year = 2026; c.month = 5; c.hour = 9
+        var dates: [Date] = []
+        for d in [4, 7, 11, 14, 18, 21, 25, 28] {
+            c.day = d
+            dates.append(cal.date(from: c)!)
+        }
+        let payload = "custom|" + dates.map { String($0.timeIntervalSince1970) }.joined(separator: ",")
+        XCTAssertEqual(makeSupp(daysOfWeek: payload).scheduleLabel(calendar: cal), "Mon, Thu")
+    }
+
+    func testScheduleLabel_customMoreThan4Weekdays_returnsCount() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Australia/Brisbane") ?? .current
+        // 5 different weekdays → falls back to "N dates".
+        var c = DateComponents(); c.year = 2026; c.month = 5; c.hour = 9
+        var dates: [Date] = []
+        for d in [4, 5, 6, 7, 8] { // Mon, Tue, Wed, Thu, Fri
+            c.day = d
+            dates.append(cal.date(from: c)!)
+        }
+        let payload = "custom|" + dates.map { String($0.timeIntervalSince1970) }.joined(separator: ",")
+        XCTAssertEqual(makeSupp(daysOfWeek: payload).scheduleLabel(calendar: cal), "5 dates")
+    }
+
+    func testScheduleLabel_weekly_includesEndDate() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Australia/Brisbane") ?? .current
+        var c = DateComponents(); c.year = 2026; c.month = 5; c.day = 31; c.hour = 9
+        let endTs = cal.date(from: c)!.timeIntervalSince1970
+        XCTAssertEqual(makeSupp(daysOfWeek: "weekly|\(endTs)").scheduleLabel(calendar: cal), "Weekly until 31 May")
+    }
+
+    func testScheduleLabel_fortnightlyAndMonthly_includeEndDate() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Australia/Brisbane") ?? .current
+        var c = DateComponents(); c.year = 2026; c.month = 5; c.day = 31; c.hour = 9
+        let endTs = cal.date(from: c)!.timeIntervalSince1970
+        XCTAssertEqual(makeSupp(daysOfWeek: "fortnightly|\(endTs)").scheduleLabel(calendar: cal), "Fortnightly until 31 May")
+        XCTAssertEqual(makeSupp(daysOfWeek: "monthly|\(endTs)").scheduleLabel(calendar: cal), "Monthly until 31 May")
+    }
+
+    func testScheduleLabel_once_includesAnchorDate() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Australia/Brisbane") ?? .current
+        // Anchor via start_date so the label resolves deterministically.
+        let supp = Supplement(
+            id: UUID(), userId: UUID(), name: "T", dose: nil, timing: "Morning",
+            customTime: nil, daysOfWeek: "once", notes: nil,
+            reminderEnabled: false, isActive: true, inProtocol: true,
+            stockQuantity: nil, stockUnits: nil, doseAmount: nil, doseUnits: nil,
+            startDate: "2026-05-15", createdAt: Date()
+        )
+        XCTAssertEqual(supp.scheduleLabel(calendar: cal), "Once on 15 May")
+    }
+
+    func testScheduleLabel_emptyCustomPayload_returnsCustomDates() {
+        XCTAssertEqual(makeSupp(daysOfWeek: "custom|").scheduleLabel(), "Custom dates")
+    }
+
     // MARK: - Helpers
 
     private func makeSupp(daysOfWeek: String) -> Supplement {

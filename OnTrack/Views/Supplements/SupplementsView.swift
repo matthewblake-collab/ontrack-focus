@@ -393,31 +393,9 @@ struct ProtocolRowView: View {
     let supplement: Supplement
     @EnvironmentObject private var themeManager: ThemeManager
 
-    var daysLabel: String {
-        let days = supplement.daysOfWeek
-        if days == "everyday" || days.isEmpty { return "Every day" }
-        if days.hasPrefix("weekly") { return "Weekly" }
-        if days.hasPrefix("fortnightly") { return "Fortnightly" }
-        if days.hasPrefix("monthly") { return "Monthly" }
-        if days == "once" { return "Once" }
-        let dayNames = ["", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-        if days.hasPrefix("custom|") {
-            let payload = days.dropFirst("custom|".count)
-            let timestamps = payload.split(separator: ",").compactMap { TimeInterval($0) }
-            if timestamps.isEmpty { return "Custom dates" }
-            let cal = Calendar.current
-            let weekdays = Set(timestamps.map { cal.component(.weekday, from: Date(timeIntervalSince1970: $0)) })
-            // If the selected dates collapse to ≤4 distinct weekdays, show those
-            // (covers the common "every Mon and Thu" case). Otherwise show a count.
-            if weekdays.count <= 4 {
-                return weekdays.sorted().map { dayNames[$0] }.joined(separator: ", ")
-            }
-            return "\(timestamps.count) dates"
-        }
-        let parts = days.components(separatedBy: ",").compactMap { Int($0) }.filter { $0 >= 1 && $0 <= 7 }
-        if parts.isEmpty { return "Custom dates" }
-        return parts.map { dayNames[$0] }.joined(separator: ", ")
-    }
+    /// Forwards to `Supplement.scheduleLabel(calendar:)` so this card and
+    /// `SupplementDetailView`'s Schedule row produce identical text.
+    var daysLabel: String { supplement.scheduleLabel() }
 
     var body: some View {
         HStack(spacing: 14) {
