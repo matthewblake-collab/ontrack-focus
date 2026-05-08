@@ -338,6 +338,72 @@ final class OnTrackTests: XCTestCase {
         )
     }
 
+    // MARK: - Custom-dates round-trip (storageValue <-> parseCustomDates)
+
+    /// Round-trip: write a custom payload via the same string shape that
+    /// `SupplementRecurrence.storageValue(.custom, ...)` produces, parse it back
+    /// via the shared `Supplement.parseCustomDates`, then re-serialize. Verify
+    /// the timestamps survive identically (set-equal, modulo Double precision).
+    /// Mirrors the EditSupplementView load path so a save → reload → save cycle
+    /// stays stable.
+    func testSupplement_parseCustomDates_roundTripsByteEqual() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Australia/Brisbane") ?? .current
+
+        // 8 dates: Mon + Thu over 4 weeks of May 2026 — same shape Matt's
+        // production data has.
+        var c = DateComponents(); c.year = 2026; c.month = 5; c.hour = 9
+        let days = [4, 7, 11, 14, 18, 21, 25, 28]
+        let originals: [Date] = days.map { d in
+            c.day = d
+            return cal.date(from: c)!
+        }
+
+        let serialized = "custom|" + originals.map { String($0.timeIntervalSince1970) }.joined(separator: ",")
+
+        guard let parsed = Supplement.parseCustomDates(from: serialized) else {
+            XCTFail("parseCustomDates returned nil for a valid custom| payload")
+            return
+        }
+
+        XCTAssertEqual(parsed.count, originals.count, "every date must round-trip")
+        // Set-equal on time intervals — sorted output already matches the input.
+        XCTAssertEqual(
+            parsed.map { $0.timeIntervalSince1970 }.sorted(),
+            originals.map { $0.timeIntervalSince1970 }.sorted()
+        )
+
+        // Re-serialize and compare to the original string. Because `String(Double)`
+        // is deterministic for the same Double value, this should be byte-equal.
+        let reSerialized = "custom|" + parsed.map { String($0.timeIntervalSince1970) }.joined(separator: ",")
+        XCTAssertEqual(reSerialized, serialized, "serialize → parse → serialize must be identity")
+    }
+
+    func testSupplement_parseCustomDates_nonCustom_returnsNil() {
+        XCTAssertNil(Supplement.parseCustomDates(from: "everyday"))
+        XCTAssertNil(Supplement.parseCustomDates(from: "2,5"))
+        XCTAssertNil(Supplement.parseCustomDates(from: "weekly|123456.0"))
+        XCTAssertNil(Supplement.parseCustomDates(from: "once"))
+        XCTAssertNil(Supplement.parseCustomDates(from: ""))
+    }
+
+    func testSupplement_parseCustomDates_emptyPayload_returnsEmpty() {
+        // "custom|" with no payload is degenerate but reachable if the picker is
+        // saved with zero selected dates. Helper must return an empty array, not
+        // nil — nil is reserved for "not a custom string at all".
+        let parsed = Supplement.parseCustomDates(from: "custom|")
+        XCTAssertNotNil(parsed)
+        XCTAssertEqual(parsed?.count, 0)
+    }
+
+    func testSupplement_parseCustomDates_garbageChunksAreDropped() {
+        // A single bad chunk shouldn't poison the rest — match the production
+        // CSV-resilience behaviour of the predicate.
+        let payload = "custom|1778162400.0,not-a-number,1779026400.0"
+        let parsed = Supplement.parseCustomDates(from: payload)
+        XCTAssertEqual(parsed?.count, 2)
+    }
+
     // MARK: - Helpers
 
     private func makeSupp(daysOfWeek: String) -> Supplement {
