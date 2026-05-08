@@ -252,6 +252,12 @@ final class NotificationManager: NSObject {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: identifiers)
     }
 
+    /// Cancels the pending session reminder when a session is attended or deleted.
+    /// Identifier format: session-<uuid>-{60,30,15}min (no separate streak_risk_ prefix exists).
+    func cancelStreakNotification(for sessionId: UUID) {
+        cancelSessionReminder(sessionId: sessionId)
+    }
+
     func scheduleAllReminders(for sessions: [AppSession], minutesBefore: Int = 60) {
         for session in sessions where session.status == "upcoming" {
             scheduleSessionReminder(session: session, minutesBefore: minutesBefore)
@@ -510,17 +516,21 @@ final class NotificationManager: NSObject {
             let timing: String
             let customTime: String?
             let daysOfWeek: String?
+            let startDate: String?
+            let createdAt: Date
             enum CodingKeys: String, CodingKey {
                 case id, name, timing
                 case customTime = "custom_time"
                 case daysOfWeek = "days_of_week"
+                case startDate = "start_date"
+                case createdAt = "created_at"
             }
         }
 
         do {
             let supps: [SuppRecord] = try await supabase
                 .from("supplements")
-                .select("id, name, timing, custom_time, days_of_week")
+                .select("id, name, timing, custom_time, days_of_week, start_date, created_at")
                 .eq("user_id", value: userId.uuidString)
                 .eq("is_active", value: true)
                 .eq("reminder_enabled", value: true)
@@ -551,53 +561,81 @@ final class NotificationManager: NSObject {
             let untaken = supps.filter { !takenIds.contains($0.id) }
             guard !untaken.isEmpty else { return }
 
-            let calendar2 = Calendar.current
-            let todayWeekday = calendar2.component(.weekday, from: now) // 1=Sun, 2=Mon ... 7=Sat
-
-            let dueToday = untaken.filter { supp in
-                let days = supp.daysOfWeek ?? "everyday"
-                if days == "everyday" || days.isEmpty { return true }
-                // Numeric weekday format: "1,2,3" matches Calendar.component(.weekday)
-                if days.components(separatedBy: ",").compactMap({ Int($0) }).contains(todayWeekday) { return true }
-                // Legacy abbreviated format: "Mon,Tue" — kept for safety
-                let weekdayMap: [Int: String] = [1:"Sun",2:"Mon",3:"Tue",4:"Wed",5:"Thu",6:"Fri",7:"Sat"]
-                let todayAbbr = weekdayMap[todayWeekday] ?? ""
-                if days.components(separatedBy: ",").contains(todayAbbr) { return true }
-                return false
+            // Resolve the "fire time of day" for a supplement based on its timing slot.
+            // Returns nil for the .custom timing if the customTime string can't be parsed.
+            func resolveHourMinute(_ supp: SuppRecord) -> (Int, Int)? {
+                let timing = SupplementTiming(rawValue: supp.timing)
+                switch timing {
+                case .morning:     return (7, 30)
+                case .preWorkout:  return (8, 0)
+                case .postWorkout: return (9, 0)
+                case .withMeals:   return (12, 0)
+                case .evening:     return (18, 0)
+                case .beforeBed:   return (21, 30)
+                case .custom:
+                    guard let ct = supp.customTime else { return (12, 0) }
+                    let fmtFull = DateFormatter()
+                    fmtFull.dateFormat = "HH:mm:ss"
+                    let fmtShort = DateFormatter()
+                    fmtShort.dateFormat = "HH:mm"
+                    if let parsed = fmtFull.date(from: ct) ?? fmtShort.date(from: ct) {
+                        return (calendar.component(.hour, from: parsed), calendar.component(.minute, from: parsed))
+                    }
+                    return (12, 0)
+                case nil: return (20, 0)
+                }
             }
 
-            for supp in dueToday {
-                let timing = SupplementTiming(rawValue: supp.timing)
-                var hour: Int
-                var minute: Int = 0
+            let yyyyMMdd = DateFormatter()
+            yyyyMMdd.dateFormat = "yyyyMMdd"
+            yyyyMMdd.locale = Locale(identifier: "en_US_POSIX")
 
-                switch timing {
-                case .morning:     hour = 7;  minute = 30
-                case .preWorkout:  hour = 8;  minute = 0
-                case .postWorkout: hour = 9;  minute = 0
-                case .withMeals:   hour = 12; minute = 0
-                case .evening:     hour = 18; minute = 0
-                case .beforeBed:   hour = 21; minute = 30
-                case .custom:
-                    if let ct = supp.customTime {
-                        // Try HH:mm:ss first (Postgres time format), then HH:mm
-                        let fmtFull = DateFormatter()
-                        fmtFull.dateFormat = "HH:mm:ss"
-                        let fmtShort = DateFormatter()
-                        fmtShort.dateFormat = "HH:mm"
-                        if let parsed = fmtFull.date(from: ct) ?? fmtShort.date(from: ct) {
-                            hour = calendar.component(.hour, from: parsed)
-                            minute = calendar.component(.minute, from: parsed)
-                        } else {
-                            hour = 12
+            for supp in untaken {
+                let days = supp.daysOfWeek ?? "everyday"
+                guard let (hour, minute) = resolveHourMinute(supp) else { continue }
+
+                // Custom-day supplements: fan out one trigger per future scheduled date
+                // (capped at 30/supp to stay well under iOS's 64 pending-request limit).
+                if days.hasPrefix("custom|") {
+                    let upcoming = Supplement.upcomingScheduledDates(
+                        daysOfWeek: days,
+                        after: now,
+                        limit: 30,
+                        calendar: calendar
+                    )
+                    for date in upcoming {
+                        var comps = calendar.dateComponents([.year, .month, .day], from: date)
+                        comps.hour = hour
+                        comps.minute = minute
+                        guard let fireDate = calendar.date(from: comps), fireDate > now else { continue }
+                        let triggerComps = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: fireDate)
+                        let trigger = UNCalendarNotificationTrigger(dateMatching: triggerComps, repeats: false)
+                        let content = UNMutableNotificationContent()
+                        content.title = "Supplement Reminder 💊"
+                        content.body = "Don't forget to take \(supp.name)."
+                        content.sound = .default
+                        let id = "supplement-\(supp.id.uuidString)-\(yyyyMMdd.string(from: fireDate))"
+                        let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
+                        UNUserNotificationCenter.current().add(request) { error in
+                            if let error { print("[Notifications] Supplement reminder error (\(supp.name)): \(error)") }
                         }
-                    } else {
-                        hour = 12
                     }
-                case nil: hour = 20; minute = 0
+                    continue
                 }
 
-                // If scheduled time has already passed today, schedule for tomorrow
+                // Non-custom recurrence: single-fire today/tomorrow behaviour, gated by
+                // Supplement.isScheduled so weekday-CSV, "everyday", weekly|, fortnightly|,
+                // monthly|, and "once" all use the shared predicate.
+                let anchor: Date = {
+                    if let s = supp.startDate, let parsed = Supplement.parseStartDate(s, calendar: calendar) {
+                        return parsed
+                    }
+                    return supp.createdAt
+                }()
+                guard Supplement.isScheduled(daysOfWeek: days, on: now, anchor: anchor, calendar: calendar) else {
+                    continue
+                }
+
                 var fireComponents = calendar.dateComponents([.year, .month, .day], from: now)
                 fireComponents.hour = hour
                 fireComponents.minute = minute
@@ -605,7 +643,6 @@ final class NotificationManager: NSObject {
                 if fireDate <= now {
                     guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: fireDate) else { continue }
                     fireDate = tomorrow
-                    fireComponents = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: fireDate)
                 }
 
                 let content = UNMutableNotificationContent()
@@ -613,7 +650,6 @@ final class NotificationManager: NSObject {
                 content.body = "Don't forget to take \(supp.name) today."
                 content.sound = .default
 
-                // Build trigger using the actual fire date (handles today vs tomorrow correctly)
                 let triggerComponents = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: fireDate)
                 let trigger = UNCalendarNotificationTrigger(dateMatching: triggerComponents, repeats: false)
                 let request = UNNotificationRequest(

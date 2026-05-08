@@ -239,7 +239,8 @@ struct AddSupplementView: View {
                             .foregroundStyle(.secondary)
                         CustomSupplementDatePicker(
                             selectedDates: $customDates,
-                            themeManager: themeManager
+                            themeManager: themeManager,
+                            startBound: viewModel.newStartDateEnabled ? viewModel.newStartDate : nil
                         )
                         if !customDates.isEmpty {
                             Text("\(customDates.count) date\(customDates.count == 1 ? "" : "s") selected")
@@ -262,6 +263,7 @@ struct AddSupplementView: View {
 
     private var saveButton: some View {
         Button {
+            AnalyticsManager.shared.track(.buttonTapped, properties: ["button_name": "add_supplement_save", "screen": "AddSupplement"])
             Task {
                 guard let userId = appState.currentUser?.id else { return }
                 viewModel.newDaysOfWeek = addToProtocol
@@ -454,11 +456,18 @@ enum SupplementRecurrence: String, CaseIterable, Identifiable {
 struct CustomSupplementDatePicker: View {
     @Binding var selectedDates: [Date]
     let themeManager: ThemeManager
+    /// Optional lower bound for quick-fill generation — typically the supplement's
+    /// `startDate` from the view model. When nil, generation starts from today.
+    var startBound: Date? = nil
 
     private let calendar = Calendar.current
     private let columns = Array(repeating: GridItem(.flexible()), count: 7)
     private let dayLabels = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
     @State private var displayedMonth: Date = Date()
+
+    // Quick-fill state. Weekday ints follow Calendar.weekday (1=Sun…7=Sat).
+    @State private var quickWeekdays: Set<Int> = []
+    @State private var quickEndDate: Date = Calendar.current.date(byAdding: .month, value: 3, to: Date()) ?? Date()
 
     var daysInMonth: [Date?] {
         guard let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: displayedMonth)),
@@ -492,6 +501,37 @@ struct CustomSupplementDatePicker: View {
             selectedDates.append(date)
             selectedDates.sort()
         }
+    }
+
+    // MARK: - Quick fill
+
+    /// Lower bound for quick-fill generation — `max(startBound, today)` so we never
+    /// schedule before the supplement's start, and never in the past either.
+    private var quickStart: Date {
+        let today = calendar.startOfDay(for: Date())
+        guard let bound = startBound else { return today }
+        return max(today, calendar.startOfDay(for: bound))
+    }
+
+    /// Generate dates for the selected weekdays, merge into `selectedDates` without
+    /// dropping the user's manual picks, sort, and update.
+    private func applyQuickFill() {
+        let generated = Supplement.expandWeekdaysToDates(
+            weekdays: quickWeekdays,
+            from: quickStart,
+            to: quickEndDate,
+            limit: 365,
+            calendar: calendar
+        )
+        guard !generated.isEmpty else { return }
+        var merged = selectedDates
+        for date in generated {
+            if !merged.contains(where: { calendar.isDate($0, inSameDayAs: date) }) {
+                merged.append(date)
+            }
+        }
+        merged.sort()
+        selectedDates = merged
     }
 
     var body: some View {
@@ -537,6 +577,57 @@ struct CustomSupplementDatePicker: View {
                         Color.clear.frame(width: 34, height: 34)
                     }
                 }
+            }
+
+            // MARK: - Repeat weekdays (quick fill)
+            VStack(alignment: .leading, spacing: 8) {
+                Divider().padding(.top, 4)
+                Text("Repeat weekdays")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    ForEach(1...7, id: \.self) { weekday in
+                        let label = dayLabels[weekday - 1]
+                        let on = quickWeekdays.contains(weekday)
+                        Button {
+                            if on { quickWeekdays.remove(weekday) } else { quickWeekdays.insert(weekday) }
+                        } label: {
+                            Text(label)
+                                .font(.caption2)
+                                .fontWeight(.semibold)
+                                .frame(maxWidth: .infinity, minHeight: 30)
+                                .background(on ? themeManager.currentTheme.primary : Color.clear)
+                                .foregroundStyle(on ? .white : .primary)
+                                .clipShape(Capsule())
+                                .overlay(Capsule().stroke(on ? Color.clear : Color.secondary.opacity(0.3), lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                DatePicker(
+                    "Until",
+                    selection: $quickEndDate,
+                    in: quickStart...,
+                    displayedComponents: .date
+                )
+                .font(.caption)
+                .tint(themeManager.currentTheme.primary)
+                Button {
+                    applyQuickFill()
+                } label: {
+                    Text("Add to selection")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(quickWeekdays.isEmpty ? Color.secondary.opacity(0.15) : themeManager.currentTheme.primary.opacity(0.2))
+                        .foregroundStyle(quickWeekdays.isEmpty ? .secondary : themeManager.currentTheme.primary)
+                        .clipShape(Capsule())
+                        .overlay(Capsule().stroke(themeManager.currentTheme.primary.opacity(quickWeekdays.isEmpty ? 0.0 : 0.5), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .disabled(quickWeekdays.isEmpty)
             }
         }
     }

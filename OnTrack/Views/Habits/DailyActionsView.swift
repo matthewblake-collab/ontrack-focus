@@ -133,13 +133,7 @@ struct DailyActionsView: View {
     }
 
     var todaysSupplements: [Supplement] {
-        let weekdayNum = calendar.component(.weekday, from: selectedDate)
-        let weekdayStr = String(weekdayNum)
-        return supplementVM.protocolSupplements.filter { supplement in
-            let days = supplement.daysOfWeek
-            if days == "everyday" || days.isEmpty { return true }
-            return days.components(separatedBy: ",").contains(weekdayStr)
-        }
+        supplementVM.protocolSupplements.filter { $0.isScheduled(on: selectedDate, calendar: calendar) }
     }
 
     func isSupplementTakenToday(_ supplement: Supplement) -> Bool {
@@ -824,7 +818,7 @@ struct DailyActionsView: View {
             }
         }
         .onAppear {
-            AnalyticsManager.shared.screen("Home")
+            AnalyticsManager.shared.screen("DailyActions")
         }
     }
 

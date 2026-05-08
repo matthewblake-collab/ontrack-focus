@@ -401,8 +401,21 @@ struct ProtocolRowView: View {
         if days.hasPrefix("monthly") { return "Monthly" }
         if days == "once" { return "Once" }
         let dayNames = ["", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+        if days.hasPrefix("custom|") {
+            let payload = days.dropFirst("custom|".count)
+            let timestamps = payload.split(separator: ",").compactMap { TimeInterval($0) }
+            if timestamps.isEmpty { return "Custom dates" }
+            let cal = Calendar.current
+            let weekdays = Set(timestamps.map { cal.component(.weekday, from: Date(timeIntervalSince1970: $0)) })
+            // If the selected dates collapse to ≤4 distinct weekdays, show those
+            // (covers the common "every Mon and Thu" case). Otherwise show a count.
+            if weekdays.count <= 4 {
+                return weekdays.sorted().map { dayNames[$0] }.joined(separator: ", ")
+            }
+            return "\(timestamps.count) dates"
+        }
         let parts = days.components(separatedBy: ",").compactMap { Int($0) }.filter { $0 >= 1 && $0 <= 7 }
-        if parts.isEmpty { return days }
+        if parts.isEmpty { return "Custom dates" }
         return parts.map { dayNames[$0] }.joined(separator: ", ")
     }
 

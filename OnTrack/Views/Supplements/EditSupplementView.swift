@@ -127,7 +127,8 @@ struct EditSupplementView: View {
                                         .foregroundStyle(.secondary)
                                     CustomSupplementDatePicker(
                                         selectedDates: $customDates,
-                                        themeManager: themeManager
+                                        themeManager: themeManager,
+                                        startBound: viewModel.newStartDateEnabled ? viewModel.newStartDate : nil
                                     )
                                     if !customDates.isEmpty {
                                         Text("\(customDates.count) date\(customDates.count == 1 ? "" : "s") selected")
@@ -227,14 +228,11 @@ struct EditSupplementView: View {
                     if let ts = daysOfWeek.components(separatedBy: "|").last, let interval = TimeInterval(ts) {
                         recurrenceEndDate = Date(timeIntervalSince1970: interval)
                     }
-                } else if daysOfWeek.hasPrefix("custom") {
+                } else if daysOfWeek.hasPrefix("custom|") {
+                    // Reuse Supplement.parseCustomDates so storage <-> picker round-trip
+                    // is exercised by the unit test in OnTrackTests.
                     recurrenceRule = .custom
-                    let parts = daysOfWeek.components(separatedBy: "|")
-                    if parts.count > 1 {
-                        customDates = parts[1].components(separatedBy: ",").compactMap {
-                            TimeInterval($0).map { Date(timeIntervalSince1970: $0) }
-                        }
-                    }
+                    customDates = Supplement.parseCustomDates(from: daysOfWeek) ?? []
                 } else {
                     recurrenceRule = .daily
                 }

@@ -60,25 +60,6 @@ final class SupplementViewModel: ObservableObject {
         supplements.filter { $0.inProtocol }
     }
 
-    var todaysSupplements: [Supplement] {
-        let today = Calendar.current.component(.weekday, from: Date())
-        return protocolSupplements.filter { supplement in
-            guard supplement.isActive else { return false }
-            // Exclude if start date is in the future
-            if let startDateStr = supplement.startDate {
-                let f = DateFormatter()
-                f.dateFormat = "yyyy-MM-dd"
-                if let startDate = f.date(from: startDateStr) {
-                    let todayStart = Calendar.current.startOfDay(for: Date())
-                    if startDate > todayStart { return false }
-                }
-            }
-            if supplement.daysOfWeek == "everyday" { return true }
-            let days = supplement.daysOfWeek.split(separator: ",").map { String($0) }
-            return days.contains(String(today))
-        }
-    }
-
     func isTaken(_ supplement: Supplement) -> Bool {
         todaysLogs.first { $0.supplementId == supplement.id }?.taken ?? false
     }
