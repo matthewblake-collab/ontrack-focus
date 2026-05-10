@@ -34,36 +34,22 @@ struct SupplementsView: View {
                 }
 
                 VStack(spacing: 0) {
-                    // HEADER
+                    // HEADER — three secondary buttons + one primary "+" with explicit
+                    // visual hierarchy (was: four undifferentiated white icons). 44×44pt
+                    // tap target enforced via .contentShape on the outer button frame.
                     HStack {
                         Text("Supps")
                             .font(.largeTitle)
                             .fontWeight(.bold)
                             .foregroundStyle(.white)
                         Spacer()
-                        HStack(spacing: 16) {
-                            Button { showNotifications = true } label: {
-                                Image(systemName: "bell")
-                                    .font(.system(size: 20))
-                                    .foregroundStyle(.white)
-                            }
-                            Button { showImport = true } label: {
-                                Image(systemName: "square.and.arrow.down")
-                                    .font(.system(size: 20))
-                                    .foregroundStyle(.white)
-                            }
+                        HStack(spacing: 10) {
+                            secondaryHeaderButton(icon: "bell") { showNotifications = true }
+                            secondaryHeaderButton(icon: "square.and.arrow.down") { showImport = true }
                             // Bug 1: Share Stack moved to the Share Stack page itself.
                             // Single-supplement share is now on SupplementDetailView.
-                            Button { showCalculator = true } label: {
-                                Image(systemName: "eyedropper.halffull")
-                                    .font(.system(size: 20))
-                                    .foregroundStyle(.white)
-                            }
-                            Button { showAddSupplement = true } label: {
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.title2)
-                                    .foregroundStyle(.white)
-                            }
+                            secondaryHeaderButton(icon: "eyedropper.halffull") { showCalculator = true }
+                            primaryHeaderButton(icon: "plus") { showAddSupplement = true }
                         }
                     }
                     .padding(.horizontal)
@@ -160,6 +146,39 @@ struct SupplementsView: View {
         .sheet(isPresented: $showNotifications) {
             NotificationsView()
         }
+    }
+
+    // MARK: - Header button helpers
+
+    /// Secondary action — muted fill + 1pt stroke for definition against the dark background.
+    @ViewBuilder
+    private func secondaryHeaderButton(icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(.white.opacity(0.85))
+                .frame(width: 36, height: 36)
+                .background(Circle().fill(Color.white.opacity(0.08)))
+                .overlay(Circle().strokeBorder(Color.white.opacity(0.18), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .frame(width: 44, height: 44)
+        .contentShape(Rectangle())
+    }
+
+    /// Primary action — accent gradient fill, white icon, no stroke. Highest visual weight.
+    @ViewBuilder
+    private func primaryHeaderButton(icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 36, height: 36)
+                .background(Circle().fill(themeManager.currentTheme.gradient))
+        }
+        .buttonStyle(.plain)
+        .frame(width: 44, height: 44)
+        .contentShape(Rectangle())
     }
 }
 
@@ -379,8 +398,15 @@ struct ProtocolView: View {
                         }
                         .padding(.horizontal)
                         ForEach(supplements) { supplement in
-                            ProtocolRowView(supplement: supplement)
-                                .padding(.horizontal)
+                            // Tap-to-edit: matches MyStackView and StockOverviewView. The
+                            // destination already exposes an Edit toolbar action that opens
+                            // EditSupplementView. .buttonStyle(.plain) suppresses the default
+                            // chevron tint so the existing card border is preserved.
+                            NavigationLink(destination: SupplementDetailView(supplement: supplement, viewModel: viewModel)) {
+                                ProtocolRowView(supplement: supplement)
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.horizontal)
                         }
                     }
                 }
