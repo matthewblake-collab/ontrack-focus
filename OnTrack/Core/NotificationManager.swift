@@ -19,6 +19,31 @@ final class NotificationManager: NSObject {
         print("[Notifications] ✅ NotificationManager init — delegate set")
     }
 
+    // MARK: - Per-build Wipe Migration
+
+    /// Wipes ALL pending notification requests once per app version. Catches stale
+    /// schedules left behind by earlier builds whose identifier schemes don't match
+    /// current cancellation paths — e.g. a `habit-streak-risk` calendar trigger with
+    /// `repeats: true` from before the single-fire fix. iOS does NOT clear pending
+    /// notifications on app update, so without this they survive forever.
+    /// Idempotent — only runs when the marketing+build version pair changes.
+    /// Also clears the once-per-day refresh gate so smart notifications rebuild
+    /// promptly after the wipe.
+    func wipeStaleSchedulesIfNewBuild() {
+        let key = "notifications_wiped_for_build"
+        let marketing = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"
+        let currentBuild = "\(marketing)-\(build)"
+        let lastWipedBuild = UserDefaults.standard.string(forKey: key)
+        guard lastWipedBuild != currentBuild else { return }
+        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+        UserDefaults.standard.set(currentBuild, forKey: key)
+        // Force smart notifications to rebuild on next foreground.
+        UserDefaults.standard.removeObject(forKey: "notifications_last_refresh_date")
+        print("[Notifications] 🧹 Wiped pending+delivered notifications for new build \(currentBuild) (was \(lastWipedBuild ?? "nil"))")
+    }
+
     // MARK: - Permission (synchronous, closure-based — no async/await)
 
     /// Call this directly from AppDelegate.applicationDidBecomeActive and from
@@ -370,6 +395,14 @@ final class NotificationManager: NSObject {
         await scheduleSmartCheckInReminder(userId: userId)
     }
 
+    /// Recomputes the 8pm habit-streak push on every foreground so the body
+    /// reflects current state (habits logged since the morning refresh, habits
+    /// archived, etc.) and a stale single-fire trigger gets superseded.
+    func refreshHabitStreakIfNeeded() async {
+        guard let userId = lastKnownUserId else { return }
+        await scheduleHabitStreakReminder(userId: userId)
+    }
+
     // MARK: - Habit Streak At Risk
 
     func scheduleHabitStreakReminder(userId: UUID) async {
@@ -413,10 +446,14 @@ final class NotificationManager: NSObject {
                     : "You have \(remaining) habits left to complete today. Keep the streak alive!"
                 content.sound = .default
 
+                // Single-fire at the next 20:00 only. Re-scheduled on each
+                // foreground via refreshHabitStreakIfNeeded() so the count is
+                // accurate at fire time and the trigger can't outlive a user's
+                // habits being deleted or all logged.
                 var components = DateComponents()
                 components.hour = 20
                 components.minute = 0
-                let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
+                let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
                 let request = UNNotificationRequest(identifier: "habit-streak-risk", content: content, trigger: trigger)
                 UNUserNotificationCenter.current().add(request) { error in
                     if let error { print("[Notifications] Habit streak reminder error: \(error)") }
@@ -582,7 +619,12 @@ final class NotificationManager: NSObject {
                         return (calendar.component(.hour, from: parsed), calendar.component(.minute, from: parsed))
                     }
                     return (12, 0)
-                case nil: return (20, 0)
+                case nil:
+                    // Unknown timing raw value — skip rather than defaulting to
+                    // 20:00 (which previously caused silent 8pm pushes for any
+                    // legacy/corrupt timing string in the DB).
+                    print("[Notifications] ⚠️ Skipping supplement \(supp.name) — unknown timing raw '\(supp.timing)'")
+                    return nil
                 }
             }
 
@@ -821,8 +863,20 @@ extension NotificationManager: UNUserNotificationCenterDelegate {
     }
 
     func cancelSupplementReminder(supplementId: UUID) {
-        UNUserNotificationCenter.current().removePendingNotificationRequests(
-            withIdentifiers: ["supplement-\(supplementId.uuidString)"]
-        )
+        // Match both the legacy single-fire id `supplement-<uuid>` and the
+        // custom-day fan-out id `supplement-<uuid>-<yyyyMMdd>`. The exact-match
+        // removal that existed previously only hit the former, leaving up to 30
+        // dated reminders stranded when a custom-day supp was deleted.
+        let exact = "supplement-\(supplementId.uuidString)"
+        let datedPrefix = exact + "-"
+        UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+            let ids = requests
+                .map { $0.identifier }
+                .filter { $0 == exact || $0.hasPrefix(datedPrefix) }
+            if !ids.isEmpty {
+                UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ids)
+                print("[Notifications] cancelSupplementReminder removed \(ids.count) request(s) for \(supplementId.uuidString)")
+            }
+        }
     }
 }

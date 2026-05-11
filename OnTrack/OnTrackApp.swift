@@ -44,6 +44,10 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             NotificationManager.shared.requestPermission()
         }
+        // Once-per-build wipe of stale local notifications (handles repeating
+        // triggers left behind by pre-fix builds). Runs synchronously before any
+        // scheduling work so the rebuild below starts from a clean slate.
+        NotificationManager.shared.wipeStaleSchedulesIfNewBuild()
         Task {
             await HealthKitManager.shared.requestAuthorization()
 
@@ -59,6 +63,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             }
 
             await NotificationManager.shared.refreshCheckInReminderIfNeeded()
+            await NotificationManager.shared.refreshHabitStreakIfNeeded()
             await VersionChangeManager.shared.fireNotificationIfNeeded()
 
             // Reschedule all smart notifications once per day for signed-in users
