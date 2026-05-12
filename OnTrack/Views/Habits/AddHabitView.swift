@@ -32,7 +32,7 @@ struct AddHabitView: View {
             VStack(alignment: .leading, spacing: 0) {
                 content().padding()
             }
-            .background(Color(.systemBackground))
+            .background(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .padding(.horizontal)
         }

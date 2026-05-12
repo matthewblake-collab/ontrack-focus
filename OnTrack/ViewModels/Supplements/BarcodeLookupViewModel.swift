@@ -22,6 +22,7 @@ final class BarcodeLookupViewModel {
         let serving_size: Double?
         let serving_units: String?
         let dosage_form: String?
+        let source: String?
     }
 
     private struct BarcodeRequest: Encodable { let barcode: String }
@@ -34,15 +35,21 @@ final class BarcodeLookupViewModel {
         errorMessage = nil
         defer { isResolving = false }
 
-        // Step 1 — local products cache
+        // Step 1 — local products cache. Prefer au_seed canonical rows with a real
+        // serving_size over OFF-cached rows: OFF's serving_quantity is a sachet/pack
+        // count for many AU supplements (e.g. Triple Magnesium = "1 sachet"), not
+        // the actual mg dose. The au_seed contributor table carries the real dose.
         do {
             let hits: [ResolvedProduct] = try await supabase
                 .from("products")
-                .select("id, product_name, serving_size, serving_units, dosage_form")
+                .select("id, product_name, serving_size, serving_units, dosage_form, source")
                 .eq("barcode", value: code)
-                .limit(1)
+                .limit(5)
                 .execute()
                 .value
+            if let auSeed = hits.first(where: { $0.source == "au_seed" && $0.serving_size != nil }) {
+                return auSeed
+            }
             if let hit = hits.first { return hit }
         } catch {
             // Non-fatal — fall through to the remote lookup.
