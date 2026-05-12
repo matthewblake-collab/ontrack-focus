@@ -410,29 +410,85 @@ final class NotificationManager: NSObject {
         formatter.dateFormat = "yyyy-MM-dd"
         let today = formatter.string(from: Date())
 
-        struct HabitLogRecord: Decodable { let id: UUID }
-        struct HabitRecord: Decodable { let id: UUID; let name: String }
+        struct HabitLogRecord: Decodable {
+            let habitId: UUID
+            enum CodingKeys: String, CodingKey { case habitId = "habit_id" }
+        }
+        // Pull frequency + days_of_week + target_date so we can filter to habits
+        // that actually have a daily-cadence expectation today. Without this filter
+        // one-off ("once"), weekly-target, and monthly-target habits all spam the
+        // 20:00 streak-at-risk push forever — see Habit.swift HabitFrequency cases
+        // and HabitViewModel.habitsForDate for the canonical "due today" semantics
+        // mirrored here.
+        struct HabitRecord: Decodable {
+            let id: UUID
+            let name: String
+            let frequency: String
+            let daysOfWeek: String?
+            let targetDate: String?
+            enum CodingKeys: String, CodingKey {
+                case id, name, frequency
+                case daysOfWeek = "days_of_week"
+                case targetDate = "target_date"
+            }
+        }
 
         do {
             let habits: [HabitRecord] = try await supabase
                 .from("habits")
-                .select("id, name")
+                .select("id, name, frequency, days_of_week, target_date")
                 .eq("created_by", value: userId.uuidString)
                 .eq("is_archived", value: false)
                 .execute()
                 .value
 
+            // "Due today" filter — only daily-cadence habits count toward the
+            // streak-at-risk reminder. weekly/monthly habits have count-based
+            // targets (weekly_target / monthly_target), not a daily expectation,
+            // so they need a different reminder paradigm. "once" habits have a
+            // single target_date and never generate recurring daily streak risk.
+            let calendar = Calendar.current
+            let todayWeekdayAbbr: String = {
+                switch calendar.component(.weekday, from: Date()) {
+                case 1: return "Sun"
+                case 2: return "Mon"
+                case 3: return "Tue"
+                case 4: return "Wed"
+                case 5: return "Thu"
+                case 6: return "Fri"
+                case 7: return "Sat"
+                default: return ""
+                }
+            }()
+            let dueToday: [HabitRecord] = habits.filter { habit in
+                switch habit.frequency {
+                case "daily":
+                    return true
+                case "specific_days":
+                    let days = habit.daysOfWeek?.components(separatedBy: ",") ?? []
+                    return days.contains(todayWeekdayAbbr)
+                case "weekly", "monthly", "once":
+                    return false
+                default:
+                    return false
+                }
+            }
+
             let logs: [HabitLogRecord] = try await supabase
                 .from("habit_logs")
-                .select("id")
+                .select("habit_id")
                 .eq("user_id", value: userId.uuidString)
                 .eq("logged_date", value: today)
                 .execute()
                 .value
 
-            let logCount = logs.count
-            let habitCount = habits.count
-            let undoneName = habits.first?.name ?? "your habits"
+            let dueIds = Set(dueToday.map { $0.id })
+            let loggedDueIds = Set(logs.map { $0.habitId }).intersection(dueIds)
+            let logCount = loggedDueIds.count
+            let habitCount = dueToday.count
+            let undoneName = dueToday.first(where: { !loggedDueIds.contains($0.id) })?.name
+                ?? dueToday.first?.name
+                ?? "your habits"
 
             UNUserNotificationCenter.current()
                 .removePendingNotificationRequests(withIdentifiers: ["habit-streak-risk"])
