@@ -13,16 +13,8 @@ struct MainTabView: View {
     @State private var showActivitySummary = false
     @State private var activityVM = ActivitySummaryViewModel()
     @State private var progressVM = ProgressViewModel()
-    @State private var showQuickAdd = false
-    @State private var showAddHabit = false
-    @State private var showAddSupplement = false
-    @State private var showSessionTypePicker = false
-    @State private var showGroupPicker = false
-    @State private var showCreateGroupSession = false
-    @State private var showCreateSingleSession = false
-    @State private var quickAddGroupVM = GroupViewModel()
-    @State private var quickAddSessionVM = SessionViewModel()
-    @State private var selectedQuickAddGroup: AppGroup? = nil
+    @State private var showQuickLog = false
+    @State private var quickLogVM = QuickLogViewModel()
     @StateObject private var quickAddHabitVM = HabitViewModel()
     @State private var quickAddSupplementVM = SupplementViewModel()
     @State private var previousTab = 0
@@ -88,7 +80,7 @@ struct MainTabView: View {
             .onChange(of: selectedTab) { _, newValue in
                 if newValue == 2 {
                     selectedTab = previousTab
-                    showQuickAdd = true
+                    showQuickLog = true
                 } else {
                     previousTab = newValue
                 }
@@ -97,7 +89,7 @@ struct MainTabView: View {
             VStack {
                 Spacer()
                 Button {
-                    showQuickAdd = true
+                    showQuickLog = true
                 } label: {
                     ZStack {
                         Circle()
@@ -112,41 +104,15 @@ struct MainTabView: View {
                 .offset(y: -28)
             }
             .ignoresSafeArea(.keyboard)
-            .confirmationDialog("Quick Add", isPresented: $showQuickAdd, titleVisibility: .visible) {
-                Button("Add Session") {
-                    showSessionTypePicker = true
-                }
-                Button("Add Supplement") {
-                    showAddSupplement = true
-                }
-                Button("Log Habit") {
-                    showAddHabit = true
-                }
-                Button("Add Friend") {
-                    selectedTab = 1 // Social → Friends
-                }
-                Button("Cancel", role: .cancel) {}
-            }
-            .confirmationDialog("Session Type", isPresented: $showSessionTypePicker, titleVisibility: .visible) {
-                Button("Personal Session") {
-                    quickAddSessionVM.resetForm()
-                    showCreateSingleSession = true
-                }
-                Button("Group Session") {
-                    Task { await quickAddGroupVM.fetchGroups() }
-                    showGroupPicker = true
-                }
-                Button("Recurring Personal Session") {
-                    quickAddSessionVM.resetForm()
-                    showCreateSingleSession = true
-                }
-                Button("Cancel", role: .cancel) {}
-            }
-            .sheet(isPresented: $showAddHabit) {
-                AddHabitView(viewModel: quickAddHabitVM)
-            }
-            .sheet(isPresented: $showAddSupplement) {
-                AddSupplementView(viewModel: quickAddSupplementVM)
+            .sheet(isPresented: $showQuickLog) {
+                QuickLogHubSheet(
+                    supplementVM: quickAddSupplementVM,
+                    habitVM: quickAddHabitVM,
+                    quickLogVM: quickLogVM,
+                    userId: appState.currentUser?.id
+                )
+                .environmentObject(appState)
+                .environmentObject(themeManager)
             }
             .sheet(isPresented: $showCheckIn) {
                 DailyCheckInView(vm: checkInVM)
@@ -220,43 +186,6 @@ struct MainTabView: View {
             Button("Not Now", role: .cancel) {}
         } message: {
             Text("Enable notifications in Settings to receive session reminders and your daily check-in prompt.")
-        }
-        .sheet(isPresented: $showGroupPicker) {
-            NavigationStack {
-                List(quickAddGroupVM.groups) { group in
-                    Button(group.name) {
-                        quickAddSessionVM.resetForm()
-                        selectedQuickAddGroup = group
-                        showGroupPicker = false
-                        showCreateGroupSession = true
-                    }
-                    .foregroundStyle(.white)
-                    .listRowBackground(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
-                }
-                .navigationTitle("Choose Group")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button("Cancel") { showGroupPicker = false }
-                    }
-                }
-                .background(themeManager.backgroundColour())
-                .scrollContentBackground(.hidden)
-            }
-            .environmentObject(appState)
-            .environmentObject(themeManager)
-        }
-        .sheet(isPresented: $showCreateGroupSession) {
-            if let group = selectedQuickAddGroup {
-                CreateSessionView(viewModel: quickAddSessionVM, group: group)
-                    .environmentObject(appState)
-                    .environmentObject(themeManager)
-            }
-        }
-        .sheet(isPresented: $showCreateSingleSession) {
-            CreateSingleSessionView(viewModel: quickAddSessionVM)
-                .environmentObject(appState)
-                .environmentObject(themeManager)
         }
     }
 

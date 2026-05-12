@@ -109,7 +109,12 @@ Only use schema explicitly listed here, in existing code, or in explicitly appro
 - Edge Function `barcode-lookup` (`supabase/functions/barcode-lookup/index.ts`) resolves a barcode via Open Food Facts, caches the row here, returns it. Client query: `from("products").select(...).eq("barcode", value:)`.
 
 ### `supplements` (additional columns — supplement expansion P1)
-- Beyond the columns listed above, `supplements` also has: `product_id` (uuid → products.id, nullable), `custom_brand` (text), `barcode_scanned` (text), `cycle_pattern` (text), `taper_json` (jsonb). AddSupplementView sets `product_id` + `barcode_scanned` when a scanned product is matched; the rest are reserved for later phases.
+- Beyond the columns listed above, `supplements` also has: `product_id` (uuid → products.id, nullable), `custom_brand` (text), `barcode_scanned` (text), `cycle_pattern` (text), `taper_json` (jsonb). AddSupplementView (and the Quick-Log "scan → add to stack" flow) set `product_id` + `barcode_scanned` when a scanned product is matched; the rest are reserved for later phases. The `Supplement` Swift model decodes `barcode_scanned`.
+
+### `quick_logs` (Quick-Log FAB — freeform / fallback activity log)
+- `id` (uuid pk, default `gen_random_uuid()`), `user_id` (uuid → auth.users, not null), `category` (text — currently the lowercased workout type, e.g. `"run"`), `note` (text, nullable — e.g. `"30 min"`), `duration_minutes` (int, nullable), `logged_at` (timestamptz, default `now()`), `created_at` (timestamptz, default `now()`)
+- RLS: `quick_logs_own` — `for all using (auth.uid() = user_id)` (owner-only, mirrors `blood_markers`). Inserts run under the user's session, `user_id` must equal the signed-in user (lowercased).
+- Written by `QuickLogViewModel.logWorkout` when a workout maps onto neither an existing habit nor a scheduled group session. Workouts that DO match a habit go to `habit_logs` instead; ones with a group session today go to `attendance` ("mark attended").
 
 ---
 

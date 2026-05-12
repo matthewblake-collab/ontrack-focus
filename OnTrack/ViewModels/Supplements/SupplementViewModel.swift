@@ -206,7 +206,11 @@ final class SupplementViewModel: ObservableObject {
         return f.string(from: d)
     }
 
-    func addSupplement(userId: UUID) async {
+    /// Inserts a new supplement and returns the created row (so callers like the
+    /// Quick-Log "scan → add to stack → log" flow can immediately log it).
+    /// Returns nil on failure (errorMessage is set).
+    @discardableResult
+    func addSupplement(userId: UUID) async -> Supplement? {
         isLoading = true
         errorMessage = nil
         do {
@@ -269,7 +273,7 @@ final class SupplementViewModel: ObservableObject {
                 barcodeScanned: newBarcodeScanned
             )
 
-            let _: Supplement = try await supabase
+            let inserted: Supplement = try await supabase
                 .from("supplements")
                 .insert(payload)
                 .select()
@@ -278,10 +282,13 @@ final class SupplementViewModel: ObservableObject {
                 .value
             await fetchSupplements(userId: userId)
             resetForm()
+            isLoading = false
+            return inserted
         } catch {
             errorMessage = error.localizedDescription
         }
         isLoading = false
+        return nil
     }
 
     func deductStock(supplement: Supplement) async {

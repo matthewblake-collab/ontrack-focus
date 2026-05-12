@@ -17,6 +17,8 @@ struct Supplement: Codable, Identifiable {
     var doseAmount: Double?
     var doseUnits: String?
     var startDate: String?
+    /// Raw barcode value captured when this supplement was added/matched via the scanner. nil for manual entries.
+    var barcodeScanned: String?
     let createdAt: Date
 
     enum CodingKeys: String, CodingKey {
@@ -36,6 +38,7 @@ struct Supplement: Codable, Identifiable {
         case doseAmount = "dose_amount"
         case doseUnits = "dose_units"
         case startDate = "start_date"
+        case barcodeScanned = "barcode_scanned"
         case createdAt = "created_at"
     }
 
