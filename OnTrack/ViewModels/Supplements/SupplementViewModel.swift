@@ -22,6 +22,10 @@ final class SupplementViewModel: ObservableObject {
     @Published var newStartDateEnabled: Bool = false
     @Published var newStartDate: Date = Date()
     @Published var newInProtocol: Bool = true
+    /// Set by the barcode scanner when a product is matched (products.id). nil for manual entry.
+    @Published var newProductId: UUID? = nil
+    /// Set by the barcode scanner with the raw scanned barcode value. nil for manual entry.
+    @Published var newBarcodeScanned: String? = nil
 
     func prefillFromKnowledgeItem(_ item: KnowledgeItem) {
         newName = item.title
@@ -221,6 +225,8 @@ final class SupplementViewModel: ObservableObject {
                 let doseUnits: String?
                 let startDate: String?
                 let customTime: String?
+                let productId: UUID?
+                let barcodeScanned: String?
                 enum CodingKeys: String, CodingKey {
                     case userId = "user_id"
                     case name, timing
@@ -235,6 +241,8 @@ final class SupplementViewModel: ObservableObject {
                     case doseUnits = "dose_units"
                     case startDate = "start_date"
                     case customTime = "custom_time"
+                    case productId = "product_id"
+                    case barcodeScanned = "barcode_scanned"
                 }
             }
 
@@ -256,7 +264,9 @@ final class SupplementViewModel: ObservableObject {
                 doseAmount: doseAmt,
                 doseUnits: doseAmt != nil ? newDoseUnits : nil,
                 startDate: newStartDateEnabled ? startDateFormatter.string(from: newStartDate) : nil,
-                customTime: newTiming == .custom ? Self.formatTime(newCustomTime) : nil
+                customTime: newTiming == .custom ? Self.formatTime(newCustomTime) : nil,
+                productId: newProductId,
+                barcodeScanned: newBarcodeScanned
             )
 
             let _: Supplement = try await supabase
@@ -378,5 +388,7 @@ final class SupplementViewModel: ObservableObject {
         newStartDateEnabled = false
         newStartDate = Date()
         newInProtocol = false
+        newProductId = nil
+        newBarcodeScanned = nil
     }
 }

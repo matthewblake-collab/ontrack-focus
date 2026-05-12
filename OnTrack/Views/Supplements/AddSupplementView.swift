@@ -18,6 +18,12 @@ struct AddSupplementView: View {
     @State private var matchedKnowledgeItem: KnowledgeItem?
     @State private var showKnowledgeDetail = false
     @State private var knowledgeVM = KnowledgeViewModel()
+    @State private var showScanner = false
+    @State private var barcodeVM = BarcodeLookupViewModel()
+    /// One-shot guard so a programmatic name pre-fill (from a barcode scan) doesn't
+    /// trigger the suggestions/knowledge fetch in the Name field's `.onChange`.
+    @State private var suppressNameChange = false
+    @State private var scanMessage: String?
 
     private let unitOptions = ["g", "mg", "ml", "mcg", "IU", "capsules", "tablets", "drops", "tsp", "tbsp"]
 
@@ -30,6 +36,21 @@ struct AddSupplementView: View {
                     if addToProtocol {
                         timingSection
                         scheduleSection
+                    }
+
+                    if barcodeVM.isResolving {
+                        HStack(spacing: 8) {
+                            ProgressView().controlSize(.small)
+                            Text("Looking up barcode…")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.horizontal)
+                    } else if let scanMessage {
+                        Text(scanMessage)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal)
                     }
 
                     if let error = viewModel.errorMessage {
@@ -49,6 +70,20 @@ struct AddSupplementView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        AnalyticsManager.shared.track(.buttonTapped, properties: ["button_name": "scan_barcode", "screen": "AddSupplement"])
+                        showScanner = true
+                    } label: {
+                        Image(systemName: "barcode.viewfinder")
+                    }
+                    .accessibilityLabel("Scan barcode")
+                }
+            }
+            .sheet(isPresented: $showScanner) {
+                BarcodeScannerSheet { code in
+                    Task { await handleScan(code) }
                 }
             }
             .sheet(isPresented: $showDoseCalculator) {
@@ -77,6 +112,10 @@ struct AddSupplementView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     OnTrackTextField(placeholder: "Name (e.g. Creatine)", text: $viewModel.newName)
                         .onChange(of: viewModel.newName) { _, newValue in
+                            if suppressNameChange {
+                                suppressNameChange = false
+                                return
+                            }
                             if newValue == selectedSuggestion {
                                 selectedSuggestion = nil
                                 Task { await lookupKnowledgeItem(name: newValue) }
@@ -307,6 +346,69 @@ struct AddSupplementView: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    // MARK: - Barcode scan handling
+
+    /// Resolves the scanned barcode and pre-fills the form. On no match, leaves the
+    /// form untouched so the user can enter details manually (resolution Step 3).
+    private func handleScan(_ code: String) async {
+        scanMessage = nil
+        guard let p = await barcodeVM.resolve(barcode: code) else {
+            scanMessage = barcodeVM.errorMessage ?? "No match for that barcode — enter the details below."
+            return
+        }
+        suppressNameChange = true
+        viewModel.newName = p.product_name
+        showSuggestions = false
+        supplementSuggestions = []
+        selectedSuggestion = nil
+        if let size = p.serving_size {
+            viewModel.newDoseAmount = formatDose(size)
+        }
+        if let units = mapUnits(p.serving_units) {
+            viewModel.newDoseUnits = units
+        }
+        viewModel.newTiming = inferTiming(name: p.product_name, form: p.dosage_form)
+        viewModel.newProductId = p.id
+        viewModel.newBarcodeScanned = code
+        scanMessage = "Pre-filled from \(p.product_name). Adjust anything below before saving."
+        // Refresh the knowledge-card lookup for the new name (the .onChange was suppressed).
+        await lookupKnowledgeItem(name: p.product_name)
+    }
+
+    private func formatDose(_ value: Double) -> String {
+        let rounded = (value * 100).rounded() / 100
+        if rounded == rounded.rounded() { return String(Int(rounded)) }
+        return String(rounded)
+    }
+
+    /// Maps a free-text product unit onto the picker's `unitOptions`. Unknown/blank → nil (keeps current selection).
+    private func mapUnits(_ raw: String?) -> String? {
+        guard let raw = raw?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(), !raw.isEmpty else { return nil }
+        switch raw {
+        case "g", "gram", "grams": return "g"
+        case "mg", "milligram", "milligrams": return "mg"
+        case "ml", "milliliter", "millilitre", "milliliters", "millilitres": return "ml"
+        case "mcg", "µg", "ug", "microgram", "micrograms": return "mcg"
+        case "iu": return "IU"
+        case "cap", "caps", "capsule", "capsules", "vegecap", "vegecaps", "softgel", "softgels": return "capsules"
+        case "tab", "tabs", "tablet", "tablets", "caplet", "caplets": return "tablets"
+        case "drop", "drops": return "drops"
+        case "tsp", "teaspoon", "teaspoons": return "tsp"
+        case "tbsp", "tablespoon", "tablespoons": return "tbsp"
+        default: return unitOptions.contains(raw) ? raw : nil
+        }
+    }
+
+    /// Best-effort timing guess from a product's name + dosage_form. Defaults to `.morning`.
+    private func inferTiming(name: String, form: String?) -> SupplementTiming {
+        let t = (name + " " + (form ?? "")).lowercased()
+        if t.range(of: #"pre[- ]?workout"#, options: .regularExpression) != nil { return .preWorkout }
+        if t.range(of: #"post[- ]?workout|recovery"#, options: .regularExpression) != nil { return .postWorkout }
+        if t.range(of: #"sleep|night|before ?bed|bedtime"#, options: .regularExpression) != nil { return .beforeBed }
+        if t.range(of: #"with (food|meal|meals)|with a meal"#, options: .regularExpression) != nil { return .withMeals }
+        return .morning
     }
 
     // MARK: - Helpers

@@ -101,6 +101,16 @@ Only use schema explicitly listed here, in existing code, or in explicitly appro
 - All other events: higher value = better
 - Used by ProgressViewModel.fetchPersonalBests(userId:) and the new fetchPBsForUsers(userIds:)
 
+### `products` (shared product catalogue — supplement barcode lookup)
+- `id` (uuid), `source` (text, CHECK in `au_seed`/`off`/`dsld`/`user`/`peptide_seed`/`ped_seed`/`vision_ocr`/`affiliate_feed`/`tga_artg`), `source_id`, `barcode`, `brand`, `product_name` (not null), `serving_size` (numeric), `serving_units`, `servings_per_container` (int), `dosage_form`, `ingredients_json` (jsonb), `image_url`, `country` (default `'AU'`), `artg_number`, `artg_type`, `affiliate_url`, `verified` (bool, default false), `contributed_by` (uuid → auth.users), `created_at`, `updated_at`
+- Unique partial index on `barcode` WHERE `barcode IS NOT NULL` — PostgREST `upsert`/`onConflict` cannot target it; use select-then-insert/update (the `barcode-lookup` Edge Function does this with the service-role key)
+- CHECK `no_affiliate_on_restricted`: `affiliate_url` must be NULL when `source` is `peptide_seed`/`ped_seed`
+- RLS: `products_select` (read requires `auth.uid() IS NOT NULL`), `products_user_insert`/`products_user_update`/`products_user_delete` (only `source = 'user' AND contributed_by = auth.uid()`). Server-side writes (seeders, Edge Function) use the service-role key (RLS bypass).
+- Edge Function `barcode-lookup` (`supabase/functions/barcode-lookup/index.ts`) resolves a barcode via Open Food Facts, caches the row here, returns it. Client query: `from("products").select(...).eq("barcode", value:)`.
+
+### `supplements` (additional columns — supplement expansion P1)
+- Beyond the columns listed above, `supplements` also has: `product_id` (uuid → products.id, nullable), `custom_brand` (text), `barcode_scanned` (text), `cycle_pattern` (text), `taper_json` (jsonb). AddSupplementView sets `product_id` + `barcode_scanned` when a scanned product is matched; the rest are reserved for later phases.
+
 ---
 
 ## Relationship / implementation notes

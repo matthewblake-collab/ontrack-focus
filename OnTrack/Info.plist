@@ -7,7 +7,7 @@
 	<key>NSFaceIDUsageDescription</key>
 	<string>OnTrack uses Face ID to sign you in quickly and securely.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Used to scan friend QR codes</string>
+	<string>Used to scan friend QR codes and supplement product barcodes.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>SentryDSN</key>
