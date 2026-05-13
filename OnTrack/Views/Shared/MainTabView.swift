@@ -104,7 +104,9 @@ struct MainTabView: View {
                 .offset(y: -28)
             }
             .ignoresSafeArea(.keyboard)
-            .sheet(isPresented: $showQuickLog) {
+            .sheet(isPresented: $showQuickLog, onDismiss: {
+                NotificationCenter.default.post(name: .quickLogDidComplete, object: nil)
+            }) {
                 QuickLogHubSheet(
                     supplementVM: quickAddSupplementVM,
                     habitVM: quickAddHabitVM,
@@ -234,4 +236,8 @@ struct MainTabView: View {
             print("[MainTabView] daily check-in lookup failed: \(error)")
         }
     }
+}
+
+extension Notification.Name {
+    static let quickLogDidComplete = Notification.Name("quickLogDidComplete")
 }

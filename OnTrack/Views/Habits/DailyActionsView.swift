@@ -820,6 +820,9 @@ struct DailyActionsView: View {
         .onAppear {
             AnalyticsManager.shared.screen("DailyActions")
         }
+        .onReceive(NotificationCenter.default.publisher(for: .quickLogDidComplete)) { _ in
+            Task { await sessionVM.fetchAllSessions() }
+        }
     }
 
     // MARK: - Date Browser
