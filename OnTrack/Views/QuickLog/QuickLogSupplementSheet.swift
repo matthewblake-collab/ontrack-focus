@@ -26,7 +26,7 @@ struct QuickLogSupplementSheet: View {
     }
 
     private var todaysSupps: [Supplement] {
-        supplementVM.protocolSupplements.filter { $0.isScheduled(on: Date()) }
+        supplementVM.supplements
     }
 
     private func isLogged(_ s: Supplement) -> Bool {
@@ -89,7 +89,7 @@ struct QuickLogSupplementSheet: View {
                         .foregroundStyle(.white.opacity(0.7))
 
                     if todaysSupps.isEmpty {
-                        Text("Nothing scheduled today — scan a barcode instead.")
+                        Text("No supplements in your stack yet — add one from the Supps tab.")
                             .font(.footnote)
                             .foregroundStyle(.white.opacity(0.55))
                             .padding(.vertical, 8)

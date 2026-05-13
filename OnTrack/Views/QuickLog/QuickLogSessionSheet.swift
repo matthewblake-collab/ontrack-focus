@@ -123,18 +123,29 @@ struct QuickLogSessionSheet: View {
                         guard let type = selectedType, let userId else { return }
                         Task {
                             let dur = Int(durationText.trimmingCharacters(in: .whitespaces))
-                            let ok = await quickLogVM.logWorkout(
-                                type: type,
-                                durationMinutes: dur,
-                                userId: userId,
-                                matchedHabit: matchedHabit(for: type),
-                                habitVM: habitVM
-                            )
-                            if ok {
-                                UINotificationFeedbackGenerator().notificationOccurred(.success)
-                                onComplete()
+                            let habit = matchedHabit(for: type)
+                            if habit != nil {
+                                let ok = await quickLogVM.logWorkout(
+                                    type: type,
+                                    durationMinutes: dur,
+                                    userId: userId,
+                                    matchedHabit: habit,
+                                    habitVM: habitVM
+                                )
+                                if ok {
+                                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                                    onComplete()
+                                } else {
+                                    statusMessage = quickLogVM.errorMessage ?? "Couldn't log that — try again."
+                                }
                             } else {
-                                statusMessage = quickLogVM.errorMessage ?? "Couldn't log that — try again."
+                                let sessionId = await quickLogVM.logPersonalSession(type: type, durationMinutes: dur, userId: userId)
+                                if sessionId != nil {
+                                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                                    onComplete()
+                                } else {
+                                    statusMessage = quickLogVM.errorMessage ?? "Couldn't log that — try again."
+                                }
                             }
                         }
                     } label: {

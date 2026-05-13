@@ -51,6 +51,42 @@ final class QuickLogViewModel {
         }
     }
 
+    private struct NewSession: Encodable {
+        let title: String
+        let groupId: UUID?
+        let status: String
+        let proposedAt: String
+        let createdBy: String
+        let visibility: String
+        let sessionType: String
+        enum CodingKeys: String, CodingKey {
+            case title
+            case groupId = "group_id"
+            case status
+            case proposedAt = "proposed_at"
+            case createdBy = "created_by"
+            case visibility
+            case sessionType = "session_type"
+        }
+    }
+
+    private struct NewAttendance: Encodable {
+        let sessionId: UUID
+        let userId: UUID
+        let attended: Bool
+        let markedBy: UUID
+        enum CodingKeys: String, CodingKey {
+            case sessionId = "session_id"
+            case userId = "user_id"
+            case attended
+            case markedBy = "marked_by"
+        }
+    }
+
+    private struct InsertedSession: Decodable {
+        let id: UUID
+    }
+
     /// Logs a completed workout. Priority:
     ///  - `matchedHabit` non-nil AND not already logged today → insert a `habit_logs`
     ///    row via `HabitViewModel.toggleHabit` (which inserts when no log exists).
@@ -92,6 +128,55 @@ final class QuickLogViewModel {
         } catch {
             errorMessage = error.localizedDescription
             return false
+        }
+    }
+
+    /// Logs a personal (non-group) session: inserts a `sessions` row with
+    /// `group_id = nil`, then a matching `attendance` row marking the user
+    /// attended. Returns the new session UUID on success, nil on failure.
+    /// Used by Quick-Log when the chosen workout type has no matching habit.
+    func logPersonalSession(type: WorkoutType,
+                            durationMinutes: Int?,
+                            userId: UUID) async -> UUID? {
+        isWorking = true
+        errorMessage = nil
+        defer { isWorking = false }
+
+        let proposedAt = ISO8601DateFormatter().string(from: Date())
+        let sessionPayload = NewSession(
+            title: type.rawValue,
+            groupId: nil,
+            status: "completed",
+            proposedAt: proposedAt,
+            createdBy: userId.uuidString.lowercased(),
+            visibility: "friends",
+            sessionType: type.rawValue.lowercased()
+        )
+
+        do {
+            let inserted: InsertedSession = try await supabase
+                .from("sessions")
+                .insert(sessionPayload)
+                .select()
+                .single()
+                .execute()
+                .value
+
+            let attendancePayload = NewAttendance(
+                sessionId: inserted.id,
+                userId: userId,
+                attended: true,
+                markedBy: userId
+            )
+            try await supabase
+                .from("attendance")
+                .insert(attendancePayload)
+                .execute()
+
+            return inserted.id
+        } catch {
+            errorMessage = error.localizedDescription
+            return nil
         }
     }
 }
