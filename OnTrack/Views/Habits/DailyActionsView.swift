@@ -80,8 +80,12 @@ struct DailyActionsView: View {
         return dateStr == DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .none)
     }
 
+    private func isSessionAttended(_ session: AppSession) -> Bool {
+        attendedSessionIds.contains(session.id) || session.status == "completed"
+    }
+
     private var completedItemCount: Int {
-        let attendedTodayCount = todaysSessions.filter { attendedSessionIds.contains($0.id) }.count
+        let attendedTodayCount = todaysSessions.filter { isSessionAttended($0) }.count
         return completedHabitIdsForDate.count + completedSupplementIdsForDate.count + attendedTodayCount
     }
 
@@ -93,7 +97,7 @@ struct DailyActionsView: View {
             case .supplement(let supplement):
                 return showCompleted || !completedSupplementIdsForDate.contains(supplement.id)
             case .session(let session):
-                return showCompleted || !attendedSessionIds.contains(session.id)
+                return showCompleted || !isSessionAttended(session)
             }
         }
     }
@@ -106,7 +110,7 @@ struct DailyActionsView: View {
             case .supplement(let supplement):
                 return !completedSupplementIdsForDate.contains(supplement.id)
             case .session(let session):
-                return !attendedSessionIds.contains(session.id)
+                return !isSessionAttended(session)
             }
         }
     }
@@ -186,7 +190,7 @@ struct DailyActionsView: View {
 
     private func toggleAttendance(for session: AppSession) async {
         guard let userId = appState.currentUser?.id else { return }
-        let currentlyAttended = attendedSessionIds.contains(session.id)
+        let currentlyAttended = isSessionAttended(session)
 
         if currentlyAttended {
             attendedSessionIds.remove(session.id)
@@ -561,7 +565,7 @@ struct DailyActionsView: View {
                     case .session(let session):
                         DailySessionLifecycleRow(
                             session: session,
-                            isAttended: attendedSessionIds.contains(session.id),
+                            isAttended: isSessionAttended(session),
                             onToggle: { Task { await toggleAttendance(for: session) } },
                             onTap: { selectedSession = session },
                             userId: appState.currentUser?.id ?? UUID()
