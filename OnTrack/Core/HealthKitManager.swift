@@ -54,7 +54,7 @@ class HealthKitManager {
     func fetchAll() async {
         async let s = fetchSleep()
         async let r = fetchQuantity(.restingHeartRate, unit: .count().unitDivided(by: .minute()))
-        async let hrv = fetchQuantity(.heartRateVariabilitySDNN, unit: HKUnit.secondUnit(with: .milli))
+        async let hrv = fetchQuantityLookback(.heartRateVariabilitySDNN, unit: HKUnit.secondUnit(with: .milli), lookbackSeconds: 36 * 3600)
         async let st = fetchQuantity(.stepCount, unit: .count())
         async let ae = fetchQuantity(.activeEnergyBurned, unit: .kilocalorie())
         async let wr = fetchQuantity(.distanceWalkingRunning, unit: .meter())
@@ -183,6 +183,23 @@ class HealthKitManager {
                     value = stats?.sumQuantity()?.doubleValue(for: unit)
                 }
                 continuation.resume(returning: value)
+            }
+            store.execute(query)
+        }
+    }
+
+    private func fetchQuantityLookback(_ identifier: HKQuantityTypeIdentifier, unit: HKUnit, lookbackSeconds: TimeInterval) async -> Double? {
+        let type = HKQuantityType(identifier)
+        let start = Date().addingTimeInterval(-lookbackSeconds)
+        let end = Date()
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end)
+        return await withCheckedContinuation { continuation in
+            let query = HKStatisticsQuery(
+                quantityType: type,
+                quantitySamplePredicate: predicate,
+                options: .discreteMostRecent
+            ) { _, stats, _ in
+                continuation.resume(returning: stats?.mostRecentQuantity()?.doubleValue(for: unit))
             }
             store.execute(query)
         }
