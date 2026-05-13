@@ -1,4 +1,5 @@
 import SwiftUI
+import Supabase
 
 struct SupplementsView: View {
     @EnvironmentObject private var appState: AppState
@@ -198,6 +199,9 @@ struct ProtocolView: View {
     @State private var stackAnalysis: StackAnalysisResult? = nil
     @State private var isLoadingAnalysis = false
     @State private var analysisError: String? = nil
+    @State private var stackKnowledgeItems: [KnowledgeItem] = []
+    @State private var knowledgeVM = KnowledgeViewModel()
+    @State private var selectedKnowledgeItem: KnowledgeItem? = nil
 
     var body: some View {
         ScrollView {
@@ -217,10 +221,23 @@ struct ProtocolView: View {
                 .environmentObject(appState)
                 .environmentObject(themeManager)
         }
+        .sheet(item: $selectedKnowledgeItem) { item in
+            NavigationStack {
+                KnowledgeDetailView(item: item, viewModel: knowledgeVM, userId: appState.currentUser?.id)
+            }
+            .environmentObject(appState)
+            .environmentObject(themeManager)
+        }
         .onAppear {
             AnalyticsManager.shared.screen("Supplements")
             if stackAnalysis == nil {
                 stackAnalysis = loadAnalysisFromCache()
+            }
+            if stackAnalysis != nil, stackKnowledgeItems.isEmpty, !viewModel.protocolSupplements.isEmpty {
+                Task {
+                    let items = await matchKnowledgeItems(for: Array(viewModel.protocolSupplements.prefix(12)))
+                    await MainActor.run { stackKnowledgeItems = items }
+                }
             }
         }
     }
@@ -231,18 +248,43 @@ struct ProtocolView: View {
         analysisError = nil
         stackAnalysis = nil
 
-        let supplementList = viewModel.protocolSupplements.map { supp -> String in
+        let protocolSupps = Array(viewModel.protocolSupplements.prefix(12))
+
+        let supplementList = protocolSupps.map { supp -> String in
             var parts = [supp.name]
             if let dose = supp.dose, !dose.isEmpty { parts.append(dose) }
             parts.append(supp.timing)
             return parts.joined(separator: " — ")
         }.joined(separator: "\n")
 
+        // Pull reference notes from the app's knowledge library for any matching compounds
+        let matchedItems = await matchKnowledgeItems(for: protocolSupps)
+        await MainActor.run { stackKnowledgeItems = matchedItems }
+
+        let referenceBlock: String
+        if matchedItems.isEmpty {
+            referenceBlock = "(no library notes matched — analyse from the protocol and well-established basics only)"
+        } else {
+            referenceBlock = matchedItems.map { item -> String in
+                var parts = ["• \(item.title) [\(item.category)]"]
+                if let dosage = item.dosage, !dosage.isEmpty { parts.append("typical: \(dosage)") }
+                if let benefits = item.benefits, !benefits.isEmpty {
+                    parts.append("benefits: \(benefits.prefix(4).joined(separator: ", "))")
+                }
+                let desc = item.description.replacingOccurrences(of: "\n", with: " ")
+                parts.append("notes: \(String(desc.prefix(240)))")
+                return parts.joined(separator: " — ")
+            }.joined(separator: "\n")
+        }
+
         let prompt = """
-        You are a supplement and nutrition expert. Analyse this user's current supplement protocol and provide concise, practical insights.
+        You are a supplement and nutrition expert. Analyse this user's current supplement protocol using ONLY the reference notes below plus the protocol itself and well-established nutrition basics. Do not invent compounds, doses, or interactions that aren't supported; if a claim isn't supported, omit it.
 
         Current protocol:
         \(supplementList)
+
+        Reference notes (from the app's research library):
+        \(referenceBlock)
 
         Respond ONLY as a JSON object with this exact structure, no other text:
         {
@@ -254,7 +296,7 @@ struct ProtocolView: View {
         Rules:
         - conflicts: overlapping ingredients, timing clashes, or combinations to watch out for (max 3 items, empty array if none)
         - synergies: combinations that work well together and why (max 3 items, empty array if none)
-        - suggestions: 1-2 practical improvements to consider (max 2 items)
+        - suggestions: 1-2 practical improvements to consider, grounded in the reference notes (max 2 items)
         - Each string should be 1 sentence max, plain language, no markdown
         - If fewer than 2 supplements, return all empty arrays
         """
@@ -288,6 +330,33 @@ struct ProtocolView: View {
             await MainActor.run { analysisError = error.localizedDescription }
         }
         await MainActor.run { isLoadingAnalysis = false }
+    }
+
+    /// Best-effort fuzzy lookup of knowledge_items for each supplement name (mirrors AddSupplementView.lookupKnowledgeItem).
+    private func matchKnowledgeItems(for supplements: [Supplement]) async -> [KnowledgeItem] {
+        var seen = Set<UUID>()
+        var matched: [KnowledgeItem] = []
+        for supp in supplements {
+            let name = supp.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard name.count >= 3 else { continue }
+            do {
+                let results: [KnowledgeItem] = try await supabase
+                    .from("knowledge_items")
+                    .select()
+                    .eq("is_published", value: true)
+                    .ilike("title", pattern: "%\(name)%")
+                    .limit(1)
+                    .execute()
+                    .value
+                if let item = results.first, !seen.contains(item.id) {
+                    seen.insert(item.id)
+                    matched.append(item)
+                }
+            } catch {
+                // best-effort — skip on failure
+            }
+        }
+        return matched
     }
 
     private func saveAnalysisToCache(_ result: StackAnalysisResult) {
@@ -353,8 +422,12 @@ struct ProtocolView: View {
                 analysis: stackAnalysis,
                 isLoading: isLoadingAnalysis,
                 error: analysisError,
+                knowledgeItems: stackKnowledgeItems,
                 onAnalyse: {
                     Task { await runStackAnalysis() }
+                },
+                onOpenKnowledge: { item in
+                    selectedKnowledgeItem = item
                 }
             )
             .padding(.horizontal)
@@ -723,7 +796,9 @@ struct StackAnalysisCard: View {
     let analysis: StackAnalysisResult?
     let isLoading: Bool
     let error: String?
+    let knowledgeItems: [KnowledgeItem]
     let onAnalyse: () -> Void
+    let onOpenKnowledge: (KnowledgeItem) -> Void
 
     private let cardBg = Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92)
     private let purple = Color(red: 0.5, green: 0.3, blue: 0.9)
@@ -828,6 +903,10 @@ struct StackAnalysisCard: View {
                     .foregroundStyle(.white.opacity(0.45))
                     .fixedSize(horizontal: false, vertical: true)
             }
+
+            if analysis != nil, !knowledgeItems.isEmpty {
+                learnMoreRow
+            }
         }
         .padding(14)
         .background(cardBg)
@@ -866,5 +945,40 @@ struct StackAnalysisCard: View {
         .padding(10)
         .background(color.opacity(0.07))
         .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+
+    private var learnMoreRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Learn more about your stack")
+                .font(.caption2)
+                .fontWeight(.semibold)
+                .foregroundStyle(.white.opacity(0.4))
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(knowledgeItems) { item in
+                        Button {
+                            onOpenKnowledge(item)
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "book.fill")
+                                    .font(.system(size: 9))
+                                Text(item.title)
+                                    .font(.caption2)
+                                    .fontWeight(.medium)
+                                    .lineLimit(1)
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(purple.opacity(0.15))
+                            .foregroundStyle(.white.opacity(0.85))
+                            .clipShape(Capsule())
+                            .overlay(Capsule().stroke(purple.opacity(0.35), lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
