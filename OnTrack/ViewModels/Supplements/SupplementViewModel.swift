@@ -132,6 +132,7 @@ final class SupplementViewModel: ObservableObject {
                 supplementLogs.append(inserted)
             }
             await deductStock(supplement: supplement)
+            NotificationCenter.default.post(name: .readinessShouldRefresh, object: nil, userInfo: ["userId": userId])
         } catch {
             errorMessage = error.localizedDescription
         }

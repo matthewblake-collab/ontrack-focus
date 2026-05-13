@@ -25,6 +25,8 @@ struct DailyActionsView: View {
     @State private var showCreateChallenge = false
     @State private var showChallengeInvite = false
     @State private var selectedChallenge: Challenge? = nil
+    @State private var readinessVM = ReadinessViewModel()
+    @State private var showReadiness = false
     @Environment(ProgressViewModel.self) private var progressVM
 
     private let calendar = Calendar.current
@@ -682,6 +684,9 @@ struct DailyActionsView: View {
                     dateBrowser
                         .padding(.bottom, 8)
 
+                    ReadinessCardView(vm: readinessVM) { showReadiness = true }
+                        .padding(.bottom, 8)
+
                     priorityCard
                         .padding(.bottom, 8)
 
@@ -765,6 +770,9 @@ struct DailyActionsView: View {
                     ChallengeDetailView(challenge: challenge, currentUserId: user.id, viewModel: challengeVM)
                 }
             }
+            .navigationDestination(isPresented: $showReadiness) {
+                ReadinessView(vm: readinessVM)
+            }
             .onChange(of: selectedDate) {
                 showCompleted = false
                 showCelebration = false
@@ -809,6 +817,7 @@ struct DailyActionsView: View {
                 groupsById = Dictionary(uniqueKeysWithValues: groups.map { ($0.id, $0) })
                 groupIds = groups.map { $0.id }
                 await loadAttendance()
+                await readinessVM.refresh(userId: userId, nextIncompleteItemName: firstIncompleteItemName.isEmpty ? nil : firstIncompleteItemName)
                 progressVM.updateDailySummary(completed: completedItemCount, total: allSortedItems.count)
                 if challengeVM.incomingChallenge != nil {
                     withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
@@ -819,6 +828,9 @@ struct DailyActionsView: View {
         }
         .onAppear {
             AnalyticsManager.shared.screen("DailyActions")
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .readinessOpenRequested)) { _ in
+            showReadiness = true
         }
         .onReceive(NotificationCenter.default.publisher(for: .quickLogDidComplete)) { _ in
             Task { await sessionVM.fetchAllSessions() }

@@ -332,6 +332,7 @@ class HabitViewModel: ObservableObject {
                 await MainActor.run {
                     self.logs.append(inserted)
                     AnalyticsManager.shared.track(.habitLogged)
+                    NotificationCenter.default.post(name: .readinessShouldRefresh, object: nil, userInfo: ["userId": userId])
                 }
             } catch {
                 await MainActor.run { errorMessage = error.localizedDescription }

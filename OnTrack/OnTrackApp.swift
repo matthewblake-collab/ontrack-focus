@@ -104,6 +104,7 @@ struct OnTrackApp: App {
     @StateObject private var appState = AppState()
     @StateObject private var themeManager = ThemeManager.shared
     @State private var showLaunch = true
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
@@ -122,6 +123,15 @@ struct OnTrackApp: App {
                             await NotificationManager.shared.saveTokenToProfile(userId: userId)
                             await NotificationManager.shared.scheduleSmartNotifications(userId: userId)
                             await HealthKitManager.shared.requestAuthorization()
+                        }
+                    }
+                    .onChange(of: scenePhase) { _, phase in
+                        guard phase == .active, let userId = appState.currentUser?.id else { return }
+                        NotificationCenter.default.post(name: .readinessShouldRefresh, object: nil, userInfo: ["userId": userId])
+                    }
+                    .onOpenURL { url in
+                        if url.host == "readiness" {
+                            NotificationCenter.default.post(name: .readinessOpenRequested, object: nil)
                         }
                     }
             }

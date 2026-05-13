@@ -33,13 +33,19 @@ final class DailyCheckInViewModel {
         }
 
         if energy == 0, let steps = hk.stepCount {
+            // Maps daily step count to a 1–10 energy score for pre-fill.
             let score: Int
             switch steps {
-            case ..<2_000:  score = 1
-            case ..<5_000:  score = 2
-            case ..<8_000:  score = 3
-            case ..<12_000: score = 4
-            default:        score = 5
+            case ..<1_000:  score = 1
+            case ..<2_500:  score = 2
+            case ..<4_000:  score = 3
+            case ..<5_500:  score = 4
+            case ..<7_000:  score = 5
+            case ..<8_500:  score = 6
+            case ..<10_000: score = 7
+            case ..<12_000: score = 8
+            case ..<15_000: score = 9
+            default:        score = 10
             }
             energy = score
             didPrefill = true
@@ -100,6 +106,7 @@ final class DailyCheckInViewModel {
                 .execute()
             UserDefaults.standard.set(today, forKey: "checkin_completed_date")
             AnalyticsManager.shared.track(.checkinSubmitted)
+            NotificationCenter.default.post(name: .readinessShouldRefresh, object: nil, userInfo: ["userId": userId])
             isSubmitting = false
             return true
         } catch {

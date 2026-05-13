@@ -8,6 +8,7 @@ class HealthKitManager {
     var isAuthorized = false
     var sleepHours: Double? = nil
     var restingHeartRate: Double? = nil
+    var heartRateVariability: Double? = nil
     var stepCount: Double? = nil
     var activeEnergy: Double? = nil
     var walkRunDistance: Double? = nil
@@ -25,7 +26,7 @@ class HealthKitManager {
     private let readTypes: Set<HKObjectType> = {
         var types = Set<HKObjectType>()
         let ids: [HKQuantityTypeIdentifier] = [
-            .restingHeartRate, .stepCount, .activeEnergyBurned,
+            .restingHeartRate, .heartRateVariabilitySDNN, .stepCount, .activeEnergyBurned,
             .distanceWalkingRunning, .distanceCycling, .appleExerciseTime,
             .vo2Max, .bodyMass, .bodyFatPercentage, .height
         ]
@@ -53,6 +54,7 @@ class HealthKitManager {
     func fetchAll() async {
         async let s = fetchSleep()
         async let r = fetchQuantity(.restingHeartRate, unit: .count().unitDivided(by: .minute()))
+        async let hrv = fetchQuantity(.heartRateVariabilitySDNN, unit: HKUnit.secondUnit(with: .milli))
         async let st = fetchQuantity(.stepCount, unit: .count())
         async let ae = fetchQuantity(.activeEnergyBurned, unit: .kilocalorie())
         async let wr = fetchQuantity(.distanceWalkingRunning, unit: .meter())
@@ -64,12 +66,13 @@ class HealthKitManager {
         async let ht = fetchQuantity(.height, unit: .meter())
         async let wk = fetchWorkoutCount()
 
-        let (sleep, rhr, steps, energy, distance, cycling, exercise, vo2, w, fat, h, workouts) =
-            await (s, r, st, ae, wr, cy, ex, vo, wt, bf, ht, wk)
+        let (sleep, rhr, hrvVal, steps, energy, distance, cycling, exercise, vo2, w, fat, h, workouts) =
+            await (s, r, hrv, st, ae, wr, cy, ex, vo, wt, bf, ht, wk)
 
         await MainActor.run {
             self.sleepHours = sleep
             self.restingHeartRate = rhr
+            self.heartRateVariability = hrvVal
             self.stepCount = steps
             self.activeEnergy = energy
             self.walkRunDistance = distance.map { $0 / 1000 } // convert m to km
@@ -171,10 +174,10 @@ class HealthKitManager {
             let query = HKStatisticsQuery(
                 quantityType: type,
                 quantitySamplePredicate: predicate,
-                options: identifier == .restingHeartRate || identifier == .vo2Max || identifier == .bodyMass || identifier == .bodyFatPercentage || identifier == .height ? .discreteMostRecent : .cumulativeSum
+                options: identifier == .restingHeartRate || identifier == .heartRateVariabilitySDNN || identifier == .vo2Max || identifier == .bodyMass || identifier == .bodyFatPercentage || identifier == .height ? .discreteMostRecent : .cumulativeSum
             ) { _, stats, _ in
                 let value: Double?
-                if identifier == .restingHeartRate || identifier == .vo2Max || identifier == .bodyMass || identifier == .bodyFatPercentage || identifier == .height {
+                if identifier == .restingHeartRate || identifier == .heartRateVariabilitySDNN || identifier == .vo2Max || identifier == .bodyMass || identifier == .bodyFatPercentage || identifier == .height {
                     value = stats?.mostRecentQuantity()?.doubleValue(for: unit)
                 } else {
                     value = stats?.sumQuantity()?.doubleValue(for: unit)
@@ -185,16 +188,22 @@ class HealthKitManager {
         }
     }
 
-    // MARK: - Sleep Score Helper (converts hours to 1-5 scale)
+    // MARK: - Sleep Score Helper (converts hours to 1-10 scale)
 
+    /// Maps total sleep hours to a 1–10 score for daily check-in pre-fill.
     func sleepScore() -> Int? {
         guard let hours = sleepHours else { return nil }
         switch hours {
         case ..<4: return 1
-        case 4..<5.5: return 2
-        case 5.5..<6.5: return 3
-        case 6.5..<7.5: return 4
-        default: return 5
+        case 4..<5: return 2
+        case 5..<5.5: return 3
+        case 5.5..<6: return 4
+        case 6..<6.5: return 5
+        case 6.5..<7: return 6
+        case 7..<7.5: return 7
+        case 7.5..<8: return 8
+        case 8..<9: return 9
+        default: return 10
         }
     }
 }
