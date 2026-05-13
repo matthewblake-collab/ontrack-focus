@@ -291,14 +291,14 @@ struct FriendsTabView: View {
                 Text(profile.displayName ?? "Unknown")
                     .font(.subheadline)
                     .foregroundColor(.white)
-                if let count = friendsVM.mutualGroupCounts[profile.id], count > 0 {
+                if let count = friendsVM.mutualGroupCounts[profile.id.uuidString], count > 0 {
                     Text("\(count) mutual group\(count == 1 ? "" : "s")")
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.45))
                 }
             }
             Spacer()
-            if friendsVM.activeTodayIDs.contains(profile.id) {
+            if friendsVM.activeTodayIDs.contains(profile.id.uuidString) {
                 HStack(spacing: 4) {
                     Circle()
                         .fill(Color(red: 0.15, green: 0.75, blue: 0.45))

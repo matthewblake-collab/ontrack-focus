@@ -32,7 +32,7 @@ struct FriendProfileView: View {
         .background(Color.black.opacity(0.85).ignoresSafeArea())
         .navigationTitle(profile.displayName ?? "Friend")
         .navigationBarTitleDisplayMode(.inline)
-        .task { await vm.loadAll(friendId: profile.id, currentUserId: currentUserId) }
+        .task { await vm.loadAll(friendId: profile.id.uuidString, currentUserId: currentUserId) }
         .overlay {
             if vm.isLoading {
                 ProgressView().tint(.white)
@@ -62,7 +62,7 @@ struct FriendProfileView: View {
 
     private var activeLabel: some View {
         Group {
-            if friendsVM.activeTodayIDs.contains(profile.id) {
+            if friendsVM.activeTodayIDs.contains(profile.id.uuidString) {
                 Label("Active today", systemImage: "circle.fill")
                     .font(.caption).fontWeight(.medium)
                     .foregroundColor(Color(red: 0.15, green: 0.75, blue: 0.45))
@@ -260,7 +260,7 @@ struct FriendProfileView: View {
 
     private var cheerButton: some View {
         Button {
-            Task { await vm.sendCheer(from: currentUserId, to: profile.id) }
+            Task { await vm.sendCheer(from: currentUserId, to: profile.id.uuidString) }
         } label: {
             HStack {
                 Text(vm.alreadyCheeredToday ? "Cheered today 🔥" : "👊 Send Cheer")

@@ -5,7 +5,7 @@ struct NotificationsView: View {
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var themeManager: ThemeManager
     @State private var friendsVM = FriendsViewModel()
-    @State private var habitInvites: [HabitMember] = []
+    @State private var habitInvites: [HabitInviteDetail] = []
     @State private var groupInvites: [GroupInvite] = []
     @State private var groupVM = GroupViewModel()
     @State private var isLoading = false
@@ -136,11 +136,11 @@ struct NotificationsView: View {
                                                 .foregroundStyle(.white.opacity(0.6))
 
                                             VStack(alignment: .leading, spacing: 2) {
-                                                Text("Habit Invite")
+                                                Text(invite.habit?.name ?? "Habit Invite")
                                                     .font(.subheadline)
                                                     .fontWeight(.semibold)
                                                     .foregroundStyle(.white)
-                                                Text("You've been invited to join a group habit")
+                                                Text(invite.inviter?.displayName.map { "\($0) invited you" } ?? "You've been invited to join a habit")
                                                     .font(.caption)
                                                     .foregroundStyle(.white.opacity(0.6))
                                             }
@@ -277,9 +277,13 @@ struct NotificationsView: View {
         isLoading = true
         await friendsVM.fetchFriends(userId: userId.uuidString)
         do {
-            let invites: [HabitMember] = try await supabase
+            let invites: [HabitInviteDetail] = try await supabase
                 .from("habit_members")
-                .select()
+                .select("""
+                    id, habit_id, user_id, invited_by, status,
+                    habit:habits!habit_members_habit_id_fkey(name),
+                    inviter:profiles!habit_members_invited_by_fkey(display_name)
+                """)
                 .eq("user_id", value: userId)
                 .eq("status", value: "pending")
                 .execute()

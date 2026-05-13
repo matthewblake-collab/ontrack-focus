@@ -159,7 +159,7 @@ struct FriendsView: View {
                     let profile = friendship.requesterId.lowercased() == currentUserId.lowercased()
                         ? friendship.receiver
                         : friendship.requester
-                    if let profile, profile.id.lowercased() != currentUserId.lowercased() {
+                    if let profile, profile.id.uuidString.lowercased() != currentUserId.lowercased() {
                         FriendRow(profile: profile, friendship: friendship, viewModel: viewModel)
                     }
                 }
@@ -572,7 +572,7 @@ struct FriendsFeedView: View {
             for friend in viewModel.friends {
                 let profile = friend.requesterId == currentUserId ? friend.receiver : friend.requester
                 if let profile {
-                    friendProfiles[profile.id] = profile.displayName ?? "Someone"
+                    friendProfiles[profile.id.uuidString] = profile.displayName ?? "Someone"
                 }
             }
             milestones = await viewModel.fetchMilestones(userIds: friendIds)

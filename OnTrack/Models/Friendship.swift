@@ -40,7 +40,7 @@ struct NewFriendship: Codable {
 // MARK: - FriendProfile (lightweight profile for joins)
 
 struct FriendProfile: Codable, Identifiable {
-    let id: String
+    let id: UUID
     let displayName: String?
     let avatarUrl: String?
 
@@ -124,5 +124,36 @@ struct Milestone: Identifiable {
 
     var displayName: String {
         isPrivate ? "a habit" : (habitName ?? "a habit")
+    }
+}
+
+struct HabitInviteDetail: Codable, Identifiable {
+    let id: String
+    let habitId: String
+    let userId: String
+    let invitedBy: String
+    let status: String
+    let habit: HabitInviteSummary?
+    let inviter: HabitInviterProfile?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case habitId = "habit_id"
+        case userId = "user_id"
+        case invitedBy = "invited_by"
+        case status
+        case habit = "habit"
+        case inviter = "inviter"
+    }
+}
+
+struct HabitInviteSummary: Codable {
+    let name: String
+}
+
+struct HabitInviterProfile: Codable {
+    let displayName: String?
+    enum CodingKeys: String, CodingKey {
+        case displayName = "display_name"
     }
 }

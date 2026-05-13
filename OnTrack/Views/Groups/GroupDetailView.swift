@@ -959,7 +959,7 @@ private struct InviteMembersSheet: View {
             } else {
                 profile = friendship.requester
             }
-            guard let p = profile, !existingMemberIds.contains(p.id) else { return nil }
+            guard let p = profile, !existingMemberIds.contains(p.id.uuidString) else { return nil }
             return p
         }
     }
@@ -988,53 +988,7 @@ private struct InviteMembersSheet: View {
                             } else {
                                 VStack(spacing: 0) {
                                     ForEach(invitableFriends, id: \.id) { friend in
-                                        HStack(spacing: 12) {
-                                            Circle()
-                                                .fill(Color.white.opacity(0.15))
-                                                .frame(width: 38, height: 38)
-                                                .overlay(
-                                                    Text(String(friend.displayName?.prefix(1) ?? "?").uppercased())
-                                                        .font(.system(size: 15, weight: .semibold))
-                                                        .foregroundStyle(.white)
-                                                )
-                                            Text(friend.displayName ?? "Unknown")
-                                                .font(.subheadline)
-                                                .foregroundStyle(.white)
-                                            Spacer()
-
-                                            let alreadySent = sentInvites.contains(friend.id)
-                                            Button {
-                                                guard !alreadySent,
-                                                      let invitedBy = currentUserId?.uuidString else { return }
-                                                sentInvites.insert(friend.id)
-                                                Task {
-                                                    await groupVM.inviteFriendToGroup(
-                                                        groupId: group.id,
-                                                        inviteeId: friend.id,
-                                                        invitedBy: invitedBy
-                                                    )
-                                                }
-                                            } label: {
-                                                Text(alreadySent ? "Invited ✓" : "Invite")
-                                                    .font(.caption)
-                                                    .fontWeight(.semibold)
-                                                    .foregroundStyle(alreadySent ? .white.opacity(0.4) : .white)
-                                                    .padding(.horizontal, 14)
-                                                    .padding(.vertical, 7)
-                                                    .background(alreadySent ? Color.white.opacity(0.08) : Color(red: 0.2, green: 0.5, blue: 0.9))
-                                                    .clipShape(Capsule())
-                                            }
-                                            .buttonStyle(.plain)
-                                            .disabled(alreadySent)
-                                        }
-                                        .padding(.horizontal)
-                                        .padding(.vertical, 10)
-
-                                        if friend.id != invitableFriends.last?.id {
-                                            Divider()
-                                                .background(Color.white.opacity(0.1))
-                                                .padding(.leading, 62)
-                                        }
+                                        inviteRow(friend: friend)
                                     }
                                 }
                                 .background(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
@@ -1096,6 +1050,57 @@ private struct InviteMembersSheet: View {
         }
         .sheet(isPresented: $showFriendShareSheet) {
             ShareSheet(items: shareItems)
+        }
+    }
+
+    @ViewBuilder
+    private func inviteRow(friend: FriendProfile) -> some View {
+        let friendIdString = friend.id.uuidString
+        let alreadySent = sentInvites.contains(friendIdString)
+        HStack(spacing: 12) {
+            Circle()
+                .fill(Color.white.opacity(0.15))
+                .frame(width: 38, height: 38)
+                .overlay(
+                    Text(String(friend.displayName?.prefix(1) ?? "?").uppercased())
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.white)
+                )
+            Text(friend.displayName ?? "Unknown")
+                .font(.subheadline)
+                .foregroundStyle(.white)
+            Spacer()
+            Button {
+                guard !alreadySent,
+                      let invitedBy = currentUserId?.uuidString else { return }
+                sentInvites.insert(friendIdString)
+                Task {
+                    await groupVM.inviteFriendToGroup(
+                        groupId: group.id,
+                        inviteeId: friendIdString,
+                        invitedBy: invitedBy
+                    )
+                }
+            } label: {
+                Text(alreadySent ? "Invited ✓" : "Invite")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(alreadySent ? .white.opacity(0.4) : .white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .background(alreadySent ? Color.white.opacity(0.08) : Color(red: 0.2, green: 0.5, blue: 0.9))
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .disabled(alreadySent)
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 10)
+
+        if friend.id != invitableFriends.last?.id {
+            Divider()
+                .background(Color.white.opacity(0.1))
+                .padding(.leading, 62)
         }
     }
 }

@@ -124,12 +124,12 @@ struct CreateChallengeView: View {
                                 } else {
                                     VStack(spacing: 0) {
                                         ForEach(friends) { friend in
-                                            let isSelected = viewModel.selectedInviteeIds.contains(friend.id)
+                                            let isSelected = viewModel.selectedInviteeIds.contains(friend.id.uuidString)
                                             Button {
                                                 if isSelected {
-                                                    viewModel.selectedInviteeIds.removeAll { $0 == friend.id }
+                                                    viewModel.selectedInviteeIds.removeAll { $0 == friend.id.uuidString }
                                                 } else {
-                                                    viewModel.selectedInviteeIds.append(friend.id)
+                                                    viewModel.selectedInviteeIds.append(friend.id.uuidString)
                                                 }
                                             } label: {
                                                 HStack {

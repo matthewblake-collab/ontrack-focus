@@ -271,12 +271,12 @@ struct InviteFriendsToHabitView: View {
 
     @ViewBuilder
     func inviteButton(for profile: FriendProfile) -> some View {
-        if sentInvites.contains(profile.id) {
+        if sentInvites.contains(profile.id.uuidString) {
             Text("Invited!")
                 .font(.caption).bold()
                 .foregroundColor(.green)
-        } else if alreadyInvited(profile.id) {
-            Text(habitMembers.first { $0.userId == profile.id }?.status == "accepted" ? "Active" : "Pending")
+        } else if alreadyInvited(profile.id.uuidString) {
+            Text(habitMembers.first { $0.userId == profile.id.uuidString }?.status == "accepted" ? "Active" : "Pending")
                 .font(.caption)
                 .foregroundColor(.secondary)
         } else {
@@ -284,10 +284,10 @@ struct InviteFriendsToHabitView: View {
                 Task {
                     await friendsViewModel.inviteFriendToHabit(
                         habitId: habit.id.uuidString,
-                        friendUserId: profile.id,
+                        friendUserId: profile.id.uuidString,
                         invitedBy: currentUserId.uuidString
                     )
-                    sentInvites.insert(profile.id)
+                    sentInvites.insert(profile.id.uuidString)
                     await onInvite()
                 }
             } label: {
