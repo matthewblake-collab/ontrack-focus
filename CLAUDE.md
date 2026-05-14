@@ -124,3 +124,12 @@ See `.claude/rules/python-compat.md` — loads automatically when editing .py fi
 
 ## File Writing
 When creating .gitignore or other plain-text config files, always use `printf` or `cat <<EOF` via Bash — never the Write tool, which adds markdown formatting artifacts.
+
+## Diagnosis Before Fixing
+- For bugs involving data not appearing: verify the component rendering path and data fetch BEFORE attempting fixes
+- Confirm stated premises by reading the code first — never act on assumptions
+- State root cause hypothesis + evidence before any code edit
+
+## Build & Deploy Verification
+- Always verify BUILD SUCCEEDED before claiming a task complete
+- Never mark features done without confirming the UI actually renders
