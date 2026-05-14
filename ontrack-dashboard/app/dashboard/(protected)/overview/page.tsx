@@ -1,13 +1,29 @@
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import { OverviewClient } from '../_components/OverviewClient'
+import type { CheckinRow } from '../_lib/correlation'
+
 export const dynamic = 'force-dynamic'
 
-export default function OverviewPage() {
-  return (
-    <div className="space-y-4">
-      <h2 className="text-lg font-semibold">Overview</h2>
-      <div className="card text-text-dim text-sm">
-        Daily check-in trends, correlation insights, and protocol summary will appear here.
-        Feature 4 wires the data.
-      </div>
-    </div>
-  )
+export default async function OverviewPage() {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/dashboard/login')
+
+  const cutoff = new Date()
+  cutoff.setDate(cutoff.getDate() - 60)
+  const cutoffStr = cutoff.toISOString().slice(0, 10)
+
+  const { data } = await supabase
+    .from('daily_checkins')
+    .select('checkin_date, sleep, energy, wellbeing, mood, stress')
+    .eq('user_id', user.id)
+    .gte('checkin_date', cutoffStr)
+    .order('checkin_date', { ascending: false })
+
+  const initial = (data ?? []) as CheckinRow[]
+
+  return <OverviewClient userId={user.id} initial={initial} />
 }
