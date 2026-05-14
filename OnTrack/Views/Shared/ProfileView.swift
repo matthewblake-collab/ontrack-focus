@@ -17,6 +17,9 @@ struct ProfileView: View {
     @State private var showTrophyRoom = false
     @State private var protocolVM = ProtocolViewModel()
     @State private var showProtocolSheet = false
+    @State private var dashboardVM = DashboardEntryViewModel()
+    @State private var showDashboardSafari = false
+    @State private var showUpgradePrompt = false
 
     var body: some View {
         NavigationStack {
@@ -142,6 +145,17 @@ struct ProfileView: View {
                     Task { await progressVM.loadAll() }
                 }
 
+                // DASHBOARD ENTRY (visible to all; gated by premium internally)
+                Section {
+                    DashboardEntryCard(
+                        vm: dashboardVM,
+                        showSafari: $showDashboardSafari,
+                        showUpgrade: $showUpgradePrompt
+                    )
+                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 6, trailing: 16))
+                    .listRowBackground(Color.clear)
+                }
+
                 // MY PROTOCOL (premium only)
                 if appState.currentUser?.isPremium == true {
                     Section {
@@ -155,14 +169,28 @@ struct ProfileView: View {
                                     .frame(width: 28)
                                 VStack(alignment: .leading, spacing: 2) {
                                     if let p = protocolVM.activeProtocol {
+                                        let cfg = ProtocolConfig.config(for: p.protocolType)
+                                        let nextPhase = ProtocolConfig.nextPhase(for: p.protocolType, weekNumber: p.weekNumber)
                                         Text(p.protocolName)
                                             .font(.subheadline).fontWeight(.semibold)
                                             .foregroundStyle(themeManager.currentTheme.primary.opacity(0.9))
-                                        Text("Week \(p.weekNumber)" + (
-                                            ProtocolConfig.config(for: p.protocolType).map { " · \($0.displayName)" } ?? ""
-                                        ))
+                                        HStack(spacing: 4) {
+                                            Text("Wk \(p.weekNumber)")
+                                            if let cfg {
+                                                Text("·").foregroundStyle(.white.opacity(0.3))
+                                                Text(cfg.displayName)
+                                            }
+                                            Text("·").foregroundStyle(.white.opacity(0.3))
+                                            Text("Day \(p.daysSinceStart)")
+                                        }
                                         .font(.caption)
                                         .foregroundStyle(Color.white.opacity(0.65))
+                                        if let nextPhase {
+                                            let weeksUntil = max(0, nextPhase.weekStart - p.weekNumber)
+                                            Text("Next: \(nextPhase.name) in \(weeksUntil)w")
+                                                .font(.caption2)
+                                                .foregroundStyle(Color.white.opacity(0.5))
+                                        }
                                     } else {
                                         Text("Set up your protocol")
                                             .font(.subheadline).fontWeight(.semibold)
@@ -262,6 +290,16 @@ struct ProfileView: View {
                     .environmentObject(appState)
                     .environmentObject(themeManager)
             }
+            .sheet(isPresented: $showDashboardSafari, onDismiss: { dashboardVM.clearMagicLink() }) {
+                if let url = dashboardVM.dashboardURL {
+                    DashboardSafariView(url: url)
+                        .ignoresSafeArea()
+                }
+            }
+            .sheet(isPresented: $showUpgradePrompt) {
+                DashboardUpgradePromptSheet()
+                    .environmentObject(themeManager)
+            }
             .sheet(isPresented: $showImagePicker) {
                 ImagePickerView { data in
                     Task { await uploadAvatar(data: data) }
@@ -279,6 +317,7 @@ struct ProfileView: View {
                 if let userId = appState.currentUser?.id {
                     await insightsVM.fetchInsights(userId: userId)
                     await protocolVM.loadActive(userId: userId)
+                    await dashboardVM.loadBadge(userId: userId)
                 }
             }
         }
