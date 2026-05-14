@@ -15,6 +15,8 @@ struct ProfileView: View {
     @State private var insightsVM = InsightsViewModel()
     @State private var showProgress = false
     @State private var showTrophyRoom = false
+    @State private var protocolVM = ProtocolViewModel()
+    @State private var showProtocolSheet = false
 
     var body: some View {
         NavigationStack {
@@ -140,6 +142,57 @@ struct ProfileView: View {
                     Task { await progressVM.loadAll() }
                 }
 
+                // MY PROTOCOL (premium only)
+                if appState.currentUser?.isPremium == true {
+                    Section {
+                        Button {
+                            showProtocolSheet = true
+                        } label: {
+                            HStack(spacing: 14) {
+                                Image(systemName: "waveform.path.ecg")
+                                    .font(.title3)
+                                    .foregroundStyle(themeManager.currentTheme.primary)
+                                    .frame(width: 28)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    if let p = protocolVM.activeProtocol {
+                                        Text(p.protocolName)
+                                            .font(.subheadline).fontWeight(.semibold)
+                                            .foregroundStyle(themeManager.currentTheme.primary.opacity(0.9))
+                                        Text("Week \(p.weekNumber)" + (
+                                            ProtocolConfig.config(for: p.protocolType).map { " · \($0.displayName)" } ?? ""
+                                        ))
+                                        .font(.caption)
+                                        .foregroundStyle(Color.white.opacity(0.65))
+                                    } else {
+                                        Text("Set up your protocol")
+                                            .font(.subheadline).fontWeight(.semibold)
+                                            .foregroundStyle(themeManager.currentTheme.primary.opacity(0.9))
+                                        Text("TRT · Fat Loss · Hyrox · Muscle Gain · more")
+                                            .font(.caption)
+                                            .foregroundStyle(Color.white.opacity(0.6))
+                                    }
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundStyle(Color.white.opacity(0.4))
+                            }
+                            .padding(16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(themeManager.currentTheme.primary.opacity(0.55), lineWidth: 1.5)
+                                    )
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 6, trailing: 16))
+                        .listRowBackground(Color.clear)
+                    }
+                }
+
                 // INSIGHTS
                 Section("My Stats") {
                     InsightsGridView(vm: insightsVM)
@@ -204,6 +257,11 @@ struct ProfileView: View {
             .sheet(isPresented: $showTrophyRoom) {
                 TrophyRoomView(vm: progressVM)
             }
+            .sheet(isPresented: $showProtocolSheet) {
+                ProtocolSetupView(vm: protocolVM)
+                    .environmentObject(appState)
+                    .environmentObject(themeManager)
+            }
             .sheet(isPresented: $showImagePicker) {
                 ImagePickerView { data in
                     Task { await uploadAvatar(data: data) }
@@ -220,6 +278,7 @@ struct ProfileView: View {
             .task {
                 if let userId = appState.currentUser?.id {
                     await insightsVM.fetchInsights(userId: userId)
+                    await protocolVM.loadActive(userId: userId)
                 }
             }
         }

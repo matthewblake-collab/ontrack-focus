@@ -7,6 +7,8 @@ struct Profile: Codable, Identifiable {
     var goals: [String]
     let createdAt: Date
     var isFoundationMember: Bool?
+    var isPremium: Bool?
+    var premiumSince: Date?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -15,5 +17,7 @@ struct Profile: Codable, Identifiable {
         case goals
         case createdAt = "created_at"
         case isFoundationMember = "is_foundation_member"
+        case isPremium = "is_premium"
+        case premiumSince = "premium_since"
     }
 }
