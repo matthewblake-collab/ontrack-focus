@@ -2,11 +2,13 @@
 
 import { useState } from 'react'
 import type { CheckinRow } from '../_lib/correlation'
+import type { SupplementLogRow, SupplementRow } from '../_lib/adherence'
 import { useRealtime } from '../_lib/useRealtime'
 import { TodayCard } from './TodayCard'
 import { SparklinesWidget } from './SparklinesWidget'
 import { CorrelationStrip } from './CorrelationStrip'
 import { ThirtyDayChart } from './ThirtyDayChart'
+import { AdherenceWidget } from './AdherenceWidget'
 
 function todayISO(): string {
   const d = new Date()
@@ -16,8 +18,19 @@ function todayISO(): string {
   return `${y}-${m}-${dd}`
 }
 
-export function OverviewClient({ userId, initial }: { userId: string; initial: CheckinRow[] }) {
+export function OverviewClient({
+  userId,
+  initial,
+  supplements,
+  initialLogs,
+}: {
+  userId: string
+  initial: CheckinRow[]
+  supplements: SupplementRow[]
+  initialLogs: SupplementLogRow[]
+}) {
   const [rows, setRows] = useState<CheckinRow[]>(initial)
+  const [logs, setLogs] = useState<SupplementLogRow[]>(initialLogs)
 
   useRealtime<CheckinRow>({
     userId,
@@ -42,6 +55,13 @@ export function OverviewClient({ userId, initial }: { userId: string; initial: C
     },
   })
 
+  useRealtime<SupplementLogRow>({
+    userId,
+    table: 'supplement_logs',
+    event: 'INSERT',
+    onChange: row => setLogs(prev => [row, ...prev]),
+  })
+
   const today = rows.find(r => r.checkin_date === todayISO()) ?? null
 
   return (
@@ -50,6 +70,7 @@ export function OverviewClient({ userId, initial }: { userId: string; initial: C
       <TodayCard today={today} />
       <SparklinesWidget rows={rows} />
       <CorrelationStrip rows={rows} />
+      <AdherenceWidget supplements={supplements} logs={logs} />
       <ThirtyDayChart rows={rows} />
     </div>
   )
