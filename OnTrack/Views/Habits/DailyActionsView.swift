@@ -837,7 +837,13 @@ struct DailyActionsView: View {
             showReadiness = true
         }
         .onReceive(NotificationCenter.default.publisher(for: .quickLogDidComplete)) { _ in
-            Task { await sessionVM.fetchAllSessions() }
+            Task {
+                await sessionVM.fetchAllSessions()
+                if let userId = appState.currentUser?.id {
+                    await supplementVM.fetchSupplements(userId: userId)
+                    await supplementVM.fetchSupplementLogs(userId: userId)
+                }
+            }
         }
     }
 
