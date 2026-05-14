@@ -6,7 +6,14 @@ import type { DiscountUnlock, PartnerCodeRow } from '../_lib/partners'
 
 export const dynamic = 'force-dynamic'
 
-export default async function SupplementsPage() {
+export default async function SupplementsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ prefill?: string }>
+}) {
+  const params = await searchParams
+  const prefillName = params?.prefill ? decodeURIComponent(params.prefill) : null
+
   const supabase = await createClient()
   const {
     data: { user },
@@ -52,6 +59,7 @@ export default async function SupplementsPage() {
       initialLogs={logs}
       codes={codes}
       unlocks={unlocks}
+      prefillName={prefillName}
     />
   )
 }

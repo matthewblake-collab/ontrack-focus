@@ -7,6 +7,7 @@ import { useRealtime } from '../_lib/useRealtime'
 import { StackList } from './StackList'
 import { AdherenceHeatmap } from './AdherenceHeatmap'
 import { SupplementEditDrawer } from './SupplementEditDrawer'
+import { PrefillPrompt } from './PrefillPrompt'
 
 export function SupplementsClient({
   userId,
@@ -14,12 +15,14 @@ export function SupplementsClient({
   initialLogs,
   codes,
   unlocks,
+  prefillName,
 }: {
   userId: string
   initialSupplements: SupplementRow[]
   initialLogs: SupplementLogRow[]
   codes: PartnerCodeRow[]
   unlocks: DiscountUnlock[]
+  prefillName: string | null
 }) {
   const [supplements, setSupplements] = useState(initialSupplements)
   const [logs, setLogs] = useState(initialLogs)
@@ -43,9 +46,21 @@ export function SupplementsClient({
   const protocolSupps = supplements.filter(s => s.in_protocol)
   const otherSupps = supplements.filter(s => !s.in_protocol)
 
+  // Hide prefill prompt if a supplement with that name already exists
+  const alreadyExists = prefillName
+    ? supplements.some(s => s.name.toLowerCase() === prefillName.toLowerCase())
+    : false
+
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold">Supplements</h2>
+      {prefillName && !alreadyExists && (
+        <PrefillPrompt
+          userId={userId}
+          name={prefillName}
+          onAdded={row => setSupplements(prev => [row, ...prev])}
+        />
+      )}
       <AdherenceHeatmap supplements={supplements} logs={logs} />
 
       {protocolSupps.length > 0 && (
