@@ -1,15 +1,34 @@
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import { BloodworkClient } from '../_components/BloodworkClient'
+import type { BloodMarkerRow } from '../_lib/bloodMarkers'
+import type { ProtocolType } from '../_lib/protocolConfig'
+
 export const dynamic = 'force-dynamic'
 
-export default function BloodworkPage() {
-  return (
-    <div className="space-y-4">
-      <h2 className="text-lg font-semibold">Bloodwork</h2>
-      <div className="card border-l-2 border-amber-500/60 text-xs text-text-dim">
-        <span className="font-medium text-amber-400">Disclaimer:</span> For personal reference only.
-        Not medical advice. All testing and interpretation must be supervised by a licensed
-        medical professional.
-      </div>
-      <div className="card text-text-dim text-sm">Trend charts populate in Feature 6.</div>
-    </div>
-  )
+export default async function BloodworkPage() {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/dashboard/login')
+
+  const [markersRes, protocolRes] = await Promise.all([
+    supabase
+      .from('blood_markers')
+      .select('id, marker, value, units, reference_low, reference_high, collected_at, lab, notes')
+      .eq('user_id', user.id)
+      .order('collected_at', { ascending: true }),
+    supabase
+      .from('user_protocols')
+      .select('protocol_type')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .maybeSingle(),
+  ])
+
+  const rows = (markersRes.data ?? []) as BloodMarkerRow[]
+  const protocolType = (protocolRes.data?.protocol_type ?? null) as ProtocolType | null
+
+  return <BloodworkClient userId={user.id} initial={rows} protocolType={protocolType} />
 }
