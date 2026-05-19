@@ -62,7 +62,9 @@ class AppDelegate: NSObject, UIApplicationDelegate {
                 await HealthKitManager.shared.fetchAll()
                 UserDefaults.standard.set(today, forKey: "healthkit_last_fetch_date")
                 if let userId = supabase.auth.currentUser?.id {
-                    await HealthKitManager.shared.syncToSupabase(userId: userId)
+                    Task.detached(priority: .utility) {
+                        await HealthKitManager.shared.syncToSupabase(userId: userId)
+                    }
                 }
             }
 

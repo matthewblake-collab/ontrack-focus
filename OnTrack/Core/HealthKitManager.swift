@@ -248,12 +248,8 @@ class HealthKitManager {
         guard HKHealthStore.isHealthDataAvailable() else { return }
 
         let cal = Calendar.current
-        let now = Date()
-        let endOfToday = cal.startOfDay(for: now)
-        let lastSync = (UserDefaults.standard.object(forKey: "healthkit_sync_date") as? Date)
-            ?? cal.date(byAdding: .day, value: -30, to: endOfToday) ?? endOfToday
-        let start = cal.startOfDay(for: lastSync)
-        guard start < endOfToday else { return }
+        let endOfToday = cal.startOfDay(for: Date())
+        let start = cal.date(byAdding: .day, value: -30, to: endOfToday) ?? endOfToday
 
         async let stepsRows  = dailySumRows(.stepCount,           unit: .count(),                    from: start, to: endOfToday, type: "steps")
         async let calsRows   = dailySumRows(.activeEnergyBurned,  unit: .kilocalorie(),              from: start, to: endOfToday, type: "active_calories")
@@ -263,10 +259,7 @@ class HealthKitManager {
         async let sleepRows  = sleepDailyRows(from: start, to: endOfToday)
 
         let allRows = await stepsRows + calsRows + rhrRows + hrvRows + vo2Rows + sleepRows
-        guard !allRows.isEmpty else {
-            UserDefaults.standard.set(now, forKey: "healthkit_sync_date")
-            return
-        }
+        guard !allRows.isEmpty else { return }
 
         let payload = allRows.map { entry in
             HealthMetricUpsert(
@@ -283,7 +276,6 @@ class HealthKitManager {
                 .from("health_metrics")
                 .upsert(payload, onConflict: "user_id,recorded_at,metric_type")
                 .execute()
-            UserDefaults.standard.set(now, forKey: "healthkit_sync_date")
         } catch {
             print("[HealthKit] Supabase sync failed: \(error)")
         }

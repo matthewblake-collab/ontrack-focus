@@ -17,14 +17,22 @@ final class AppState: ObservableObject {
     }
 
     func checkSession() async {
+        defer { self.authCheckComplete = true }
+
+        // Bounded auth check — cancel if supabase.auth.user() stalls.
+        let userTask = Task { try await supabase.auth.user() }
+        Task {
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            userTask.cancel()
+        }
+
         do {
-            let user = try await supabase.auth.user()
+            let user = try await userTask.value
             self.isLoggedIn = true
             await fetchProfile(userId: user.id)
         } catch {
             self.isLoggedIn = false
         }
-        self.authCheckComplete = true
     }
 
     func fetchProfile(userId: UUID) async {
