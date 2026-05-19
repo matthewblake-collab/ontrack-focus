@@ -2,13 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Activity, Droplet, Scale, Pill, Dumbbell, NotebookPen, Settings, Tag, Trophy, LogOut } from 'lucide-react'
+import { Activity, Droplet, FlaskConical, Scale, Pill, Dumbbell, NotebookPen, Settings, Tag, Trophy, LogOut } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
 const items = [
   { href: '/dashboard/overview',    label: 'Overview',    icon: Activity },
   { href: '/dashboard/bloodwork',   label: 'Bloodwork',   icon: Droplet },
+  { href: '/dashboard/protocols',   label: 'Protocols',   icon: FlaskConical },
   { href: '/dashboard/biometrics',  label: 'Biometrics',  icon: Scale },
   { href: '/dashboard/supplements', label: 'Supplements', icon: Pill },
   { href: '/dashboard/workouts',    label: 'Workouts',    icon: Dumbbell },

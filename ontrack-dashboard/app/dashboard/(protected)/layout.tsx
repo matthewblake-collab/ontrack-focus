@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { SideNav } from './_components/SideNav'
 import { ProtocolBadge } from './_components/ProtocolBadge'
+import { ThemeToggle } from './_components/ThemeToggle'
 import { UpgradePrompt } from './_components/UpgradePrompt'
 
 export const dynamic = 'force-dynamic'
@@ -43,7 +44,10 @@ export default async function ProtectedLayout({
       <main className="flex-1 min-w-0 pb-20 md:pb-0">
         <header className="sticky top-0 z-10 px-4 md:px-8 py-3 border-b border-white/5 backdrop-blur bg-bg/80 flex items-center justify-between">
           <h1 className="text-base font-semibold">OnTrack Dashboard</h1>
-          <ProtocolBadge protocol={activeProtocol ?? null} />
+          <div className="flex items-center gap-2">
+            <ProtocolBadge protocol={activeProtocol ?? null} />
+            <ThemeToggle />
+          </div>
         </header>
         <div className="p-4 md:p-8">{children}</div>
       </main>
