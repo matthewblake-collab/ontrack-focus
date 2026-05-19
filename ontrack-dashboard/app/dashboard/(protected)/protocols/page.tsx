@@ -44,6 +44,23 @@ export type BodyMetricRecord = {
   waist_cm: number | null
 }
 
+export type HealthMetricRecord = {
+  id: string
+  recorded_at: string
+  metric_type: string
+  value: number
+}
+
+export type DailyCheckinRecord = {
+  id: string
+  checkin_date: string
+  sleep: number | null
+  energy: number | null
+  wellbeing: number | null
+  mood: number | null
+  stress: number | null
+}
+
 export default async function ProtocolsPage() {
   const supabase = await createClient()
   const {
@@ -51,13 +68,20 @@ export default async function ProtocolsPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/dashboard/login')
 
-  const [protocolRes, markersRes, journalRes, metricsRes] = await Promise.all([
-    supabase
-      .from('user_protocols')
-      .select('id, protocol_type, protocol_name, start_date, end_date, goal, notes, config')
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-      .maybeSingle(),
+  const protocolRes = await supabase
+    .from('user_protocols')
+    .select('id, protocol_type, protocol_name, start_date, end_date, goal, notes, config')
+    .eq('user_id', user.id)
+    .eq('is_active', true)
+    .maybeSingle()
+
+  const protocolStart = (protocolRes.data?.start_date as string | null) ?? null
+  const startIso = protocolStart
+    ? new Date(protocolStart + (protocolStart.includes('T') ? '' : 'T00:00:00Z')).toISOString()
+    : null
+  const startDateOnly = protocolStart ? protocolStart.slice(0, 10) : null
+
+  const [markersRes, journalRes, metricsRes, healthRes, checkinsRes] = await Promise.all([
     supabase
       .from('blood_markers')
       .select('id, marker, value, units, reference_low, reference_high, collected_at, lab, notes')
@@ -73,6 +97,22 @@ export default async function ProtocolsPage() {
       .select('id, metric_date, weight_kg, body_fat_pct, waist_cm')
       .eq('user_id', user.id)
       .order('metric_date', { ascending: false }),
+    startIso
+      ? supabase
+          .from('health_metrics')
+          .select('id, recorded_at, metric_type, value')
+          .eq('user_id', user.id)
+          .gte('recorded_at', startIso)
+          .order('recorded_at', { ascending: true })
+      : Promise.resolve({ data: [] }),
+    startDateOnly
+      ? supabase
+          .from('daily_checkins')
+          .select('id, checkin_date, sleep, energy, wellbeing, mood, stress')
+          .eq('user_id', user.id)
+          .gte('checkin_date', startDateOnly)
+          .order('checkin_date', { ascending: true })
+      : Promise.resolve({ data: [] }),
   ])
 
   const toNum = (v: unknown): number | null => {
@@ -101,6 +141,21 @@ export default async function ProtocolsPage() {
     body_fat_pct: toNum(r.body_fat_pct),
     waist_cm: toNum(r.waist_cm),
   }))
+  const healthMetrics: HealthMetricRecord[] = (healthRes.data ?? []).map((r: Record<string, unknown>) => ({
+    id: r.id as string,
+    recorded_at: r.recorded_at as string,
+    metric_type: r.metric_type as string,
+    value: toNum(r.value) ?? 0,
+  }))
+  const checkins: DailyCheckinRecord[] = (checkinsRes.data ?? []).map((r: Record<string, unknown>) => ({
+    id: r.id as string,
+    checkin_date: r.checkin_date as string,
+    sleep:     r.sleep     == null ? null : Number(r.sleep),
+    energy:    r.energy    == null ? null : Number(r.energy),
+    wellbeing: r.wellbeing == null ? null : Number(r.wellbeing),
+    mood:      r.mood      == null ? null : Number(r.mood),
+    stress:    r.stress    == null ? null : Number(r.stress),
+  }))
 
   return (
     <ProtocolsClient
@@ -109,6 +164,8 @@ export default async function ProtocolsPage() {
       markers={markers}
       journal={journal}
       metrics={metrics}
+      healthMetrics={healthMetrics}
+      checkins={checkins}
     />
   )
 }

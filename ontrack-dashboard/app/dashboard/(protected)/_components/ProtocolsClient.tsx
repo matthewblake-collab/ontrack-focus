@@ -3,11 +3,19 @@
 import { useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import {
+  ResponsiveContainer,
+  BarChart, Bar,
+  LineChart, Line,
+  XAxis, YAxis, Tooltip, CartesianGrid,
+} from 'recharts'
 import type {
   ActiveProtocol,
   BloodMarkerRecord,
   JournalRecord,
   BodyMetricRecord,
+  HealthMetricRecord,
+  DailyCheckinRecord,
 } from '../protocols/page'
 
 type TabKey = 'overview' | 'bloodwork' | 'hormones' | 'physical' | 'journal' | 'add'
@@ -370,12 +378,16 @@ export function ProtocolsClient({
   markers,
   journal,
   metrics,
+  healthMetrics,
+  checkins,
 }: {
   userId: string
   protocol: ActiveProtocol | null
   markers: BloodMarkerRecord[]
   journal: JournalRecord[]
   metrics: BodyMetricRecord[]
+  healthMetrics: HealthMetricRecord[]
+  checkins: DailyCheckinRecord[]
 }) {
   const [tab, setTab] = useState<TabKey>('overview')
   const [openPhase, setOpenPhase] = useState<number>(0)
@@ -475,6 +487,7 @@ export function ProtocolsClient({
           setOpenPhase={setOpenPhase}
           protocolChips={protocolChips}
           activeFlags={activeFlags}
+          checkins={checkins}
         />
       )}
       {tab === 'bloodwork' && (
@@ -484,7 +497,7 @@ export function ProtocolsClient({
         <HormonesTab grouped={grouped} />
       )}
       {tab === 'physical' && (
-        <PhysicalTab currentWeek={currentWeek} />
+        <PhysicalTab currentWeek={currentWeek} healthMetrics={healthMetrics} />
       )}
       {tab === 'journal' && (
         <JournalTab
@@ -507,7 +520,7 @@ export function ProtocolsClient({
 }
 
 function OverviewTab({
-  currentWeek, currentPhaseIdx, openPhase, setOpenPhase, protocolChips, activeFlags,
+  currentWeek, currentPhaseIdx, openPhase, setOpenPhase, protocolChips, activeFlags, checkins,
 }: {
   currentWeek: number
   currentPhaseIdx: number
@@ -515,6 +528,7 @@ function OverviewTab({
   setOpenPhase: (i: number) => void
   protocolChips: { label: string; color: string }[]
   activeFlags: string[]
+  checkins: DailyCheckinRecord[]
 }) {
   const pct = Math.min(100, Math.round((currentWeek / 26) * 100))
   const phase = PHASES[currentPhaseIdx]
@@ -604,6 +618,53 @@ function OverviewTab({
           </div>
         </div>
       )}
+
+      <WellnessSection checkins={checkins} />
+    </div>
+  )
+}
+
+function WellnessSection({ checkins }: { checkins: DailyCheckinRecord[] }) {
+  if (checkins.length === 0) {
+    return (
+      <div>
+        <div className="text-[10px] font-bold uppercase tracking-widest text-text-muted mb-3">Wellness since TRT start</div>
+        <div className="card text-text-muted text-sm">No daily check-ins yet. Log a check-in in the iOS app to populate.</div>
+      </div>
+    )
+  }
+  const data = checkins.map(c => ({
+    date: c.checkin_date.slice(5),
+    sleep: c.sleep ?? null,
+    energy: c.energy ?? null,
+    wellbeing: c.wellbeing ?? null,
+  }))
+  const series = [
+    { key: 'sleep',     label: 'Sleep',     color: '#4f8ef7' },
+    { key: 'energy',    label: 'Energy',    color: '#f5a623' },
+    { key: 'wellbeing', label: 'Wellbeing', color: '#2dd4a0' },
+  ] as const
+  return (
+    <div>
+      <div className="text-[10px] font-bold uppercase tracking-widest text-text-muted mb-3">Wellness since TRT start</div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {series.map(s => (
+          <div key={s.key} className="card">
+            <div className="text-[11px] font-semibold mb-2" style={{ color: s.color }}>{s.label} <span className="text-text-muted font-normal">(1–10)</span></div>
+            <div style={{ width: '100%', height: 110 }}>
+              <ResponsiveContainer>
+                <BarChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+                  <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
+                  <XAxis dataKey="date" tick={{ fontSize: 9, fill: 'var(--text-muted)' }} interval="preserveStartEnd" />
+                  <YAxis domain={[0, 10]} tick={{ fontSize: 9, fill: 'var(--text-muted)' }} />
+                  <Tooltip contentStyle={{ background: 'var(--surface-2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 11 }} />
+                  <Bar dataKey={s.key} fill={s.color} radius={[3, 3, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -726,13 +787,14 @@ function HormonesTab({ grouped }: { grouped: Map<string, BloodMarkerRecord[]> })
   )
 }
 
-function PhysicalTab({ currentWeek }: { currentWeek: number }) {
+function PhysicalTab({ currentWeek, healthMetrics }: { currentWeek: number; healthMetrics: HealthMetricRecord[] }) {
   const [sub, setSub] = useState<string>(PHYS[0].key)
-  const active = PHYS.find(p => p.key === sub) ?? PHYS[0]
+  const subTabs = [...PHYS.map(p => ({ key: p.key, label: p.label })), { key: 'biometrics', label: '📊 Biometrics' }]
+  const active = PHYS.find(p => p.key === sub)
   return (
     <div className="space-y-3">
       <div className="flex gap-1.5 flex-wrap">
-        {PHYS.map(p => (
+        {subTabs.map(p => (
           <button
             key={p.key}
             onClick={() => setSub(p.key)}
@@ -750,8 +812,11 @@ function PhysicalTab({ currentWeek }: { currentWeek: number }) {
           </button>
         ))}
       </div>
-      <div className="space-y-3">
-        {active.sections.map((s, i) => {
+      {sub === 'biometrics' ? (
+        <BiometricsSubTab healthMetrics={healthMetrics} />
+      ) : (
+        <div className="space-y-3">
+          {(active ?? PHYS[0]).sections.map((s, i) => {
           const here = currentWeek >= s.wkStart && currentWeek <= s.wkEnd
           return (
             <div key={i} className="grid grid-cols-[80px_1fr] gap-3 items-start">
@@ -788,7 +853,145 @@ function PhysicalTab({ currentWeek }: { currentWeek: number }) {
             </div>
           )
         })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function BiometricsSubTab({ healthMetrics }: { healthMetrics: HealthMetricRecord[] }) {
+  if (healthMetrics.length === 0) {
+    return (
+      <div className="card text-text-muted text-sm text-center py-10">
+        <div className="text-3xl mb-2">📱</div>
+        Sync from iOS app to populate. Open the OnTrack app to push Apple Health data.
       </div>
+    )
+  }
+
+  const by = (type: string) =>
+    healthMetrics
+      .filter(m => m.metric_type === type)
+      .map(m => ({
+        date: m.recorded_at.slice(5, 10),
+        ts: new Date(m.recorded_at).getTime(),
+        value: m.value,
+      }))
+      .sort((a, b) => a.ts - b.ts)
+
+  const rhr   = by('resting_hr')
+  const hrv   = by('hrv')
+  const steps = by('steps')
+  const vo2   = by('vo2_max')
+  const deep  = by('sleep_deep_minutes')
+  const rem   = by('sleep_rem_minutes')
+  const total = by('sleep_total_minutes')
+
+  const sleepByDate = new Map<string, { date: string; deep: number; rem: number; light: number }>()
+  for (const row of total) {
+    const d = deep.find(x => x.date === row.date)?.value ?? 0
+    const r = rem.find(x => x.date === row.date)?.value ?? 0
+    const light = Math.max(0, row.value - d - r)
+    sleepByDate.set(row.date, { date: row.date, deep: d, rem: r, light })
+  }
+  const sleep = Array.from(sleepByDate.values())
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <BioCard title="Resting HR" unit="bpm" color="#f06b4b" data={rhr}>
+        <LineChart data={rhr} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
+          <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
+          <XAxis dataKey="date" tick={{ fontSize: 9, fill: 'var(--text-muted)' }} interval="preserveStartEnd" />
+          <YAxis tick={{ fontSize: 9, fill: 'var(--text-muted)' }} domain={['dataMin - 4', 'dataMax + 4']} />
+          <Tooltip contentStyle={{ background: 'var(--surface-2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 11 }} />
+          <Line type="monotone" dataKey="value" stroke="#f06b4b" strokeWidth={2} dot={false} />
+        </LineChart>
+      </BioCard>
+
+      <BioCard title="HRV (SDNN)" unit="ms" color="#a78bfa" data={hrv}>
+        <LineChart data={hrv} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
+          <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
+          <XAxis dataKey="date" tick={{ fontSize: 9, fill: 'var(--text-muted)' }} interval="preserveStartEnd" />
+          <YAxis tick={{ fontSize: 9, fill: 'var(--text-muted)' }} domain={['dataMin - 5', 'dataMax + 5']} />
+          <Tooltip contentStyle={{ background: 'var(--surface-2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 11 }} />
+          <Line type="monotone" dataKey="value" stroke="#a78bfa" strokeWidth={2} dot={false} />
+        </LineChart>
+      </BioCard>
+
+      <BioCard title="Steps" unit="per day" color="#4ade80" data={steps}>
+        <BarChart data={steps} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
+          <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
+          <XAxis dataKey="date" tick={{ fontSize: 9, fill: 'var(--text-muted)' }} interval="preserveStartEnd" />
+          <YAxis tick={{ fontSize: 9, fill: 'var(--text-muted)' }} />
+          <Tooltip contentStyle={{ background: 'var(--surface-2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 11 }} />
+          <Bar dataKey="value" fill="#4ade80" radius={[3, 3, 0, 0]} />
+        </BarChart>
+      </BioCard>
+
+      <BioCard title="VO₂ Max" unit="mL/kg/min" color="#2dd4a0" data={vo2}>
+        <LineChart data={vo2} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
+          <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
+          <XAxis dataKey="date" tick={{ fontSize: 9, fill: 'var(--text-muted)' }} interval="preserveStartEnd" />
+          <YAxis tick={{ fontSize: 9, fill: 'var(--text-muted)' }} domain={['dataMin - 1', 'dataMax + 1']} />
+          <Tooltip contentStyle={{ background: 'var(--surface-2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 11 }} />
+          <Line type="monotone" dataKey="value" stroke="#2dd4a0" strokeWidth={2} dot={{ r: 3, fill: '#2dd4a0' }} />
+        </LineChart>
+      </BioCard>
+
+      <div className="card md:col-span-2">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-[11px] font-semibold" style={{ color: '#4f8ef7' }}>Sleep stages <span className="text-text-muted font-normal">(minutes per night)</span></div>
+          <div className="flex gap-3 text-[10px]">
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ background: '#1e3a8a' }} />Deep</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ background: '#a78bfa' }} />REM</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ background: '#4f8ef7' }} />Light</span>
+          </div>
+        </div>
+        {sleep.length === 0 ? (
+          <div className="text-text-muted text-sm py-6 text-center">No sleep data synced yet.</div>
+        ) : (
+          <div style={{ width: '100%', height: 200 }}>
+            <ResponsiveContainer>
+              <BarChart data={sleep} margin={{ top: 4, right: 8, bottom: 0, left: -10 }}>
+                <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
+                <XAxis dataKey="date" tick={{ fontSize: 9, fill: 'var(--text-muted)' }} interval="preserveStartEnd" />
+                <YAxis tick={{ fontSize: 9, fill: 'var(--text-muted)' }} />
+                <Tooltip contentStyle={{ background: 'var(--surface-2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 11 }} />
+                <Bar dataKey="deep"  stackId="s" fill="#1e3a8a" />
+                <Bar dataKey="rem"   stackId="s" fill="#a78bfa" />
+                <Bar dataKey="light" stackId="s" fill="#4f8ef7" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function BioCard({
+  title, unit, color, data, children,
+}: {
+  title: string
+  unit: string
+  color: string
+  data: { date: string; value: number }[]
+  children: React.ReactElement
+}) {
+  const latest = data.length > 0 ? data[data.length - 1].value : null
+  return (
+    <div className="card">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-[11px] font-semibold" style={{ color }}>{title} <span className="text-text-muted font-normal">{unit}</span></div>
+        {latest != null && <div className="text-[13px] font-bold" style={{ color }}>{Math.round(latest * 10) / 10}</div>}
+      </div>
+      {data.length === 0 ? (
+        <div className="text-text-muted text-sm py-6 text-center">No readings yet.</div>
+      ) : (
+        <div style={{ width: '100%', height: 130 }}>
+          <ResponsiveContainer>{children}</ResponsiveContainer>
+        </div>
+      )}
     </div>
   )
 }

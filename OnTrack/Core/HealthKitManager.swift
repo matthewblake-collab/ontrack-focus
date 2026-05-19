@@ -1,5 +1,6 @@
 import Foundation
 import HealthKit
+import Supabase
 
 @Observable
 class HealthKitManager {
@@ -221,6 +222,167 @@ class HealthKitManager {
         case 7.5..<8: return 8
         case 8..<9: return 9
         default: return 10
+        }
+    }
+
+    // MARK: - Supabase sync
+
+    private struct HealthMetricUpsert: Encodable {
+        let userId: String
+        let recordedAt: String
+        let metricType: String
+        let value: Double
+        let source: String
+        enum CodingKeys: String, CodingKey {
+            case userId = "user_id"
+            case recordedAt = "recorded_at"
+            case metricType = "metric_type"
+            case value
+            case source
+        }
+    }
+
+    /// Pulls daily-bucketed HealthKit data since the last sync and upserts to `health_metrics`.
+    /// Safe to call repeatedly — upsert keys on (user_id, recorded_at, metric_type).
+    func syncToSupabase(userId: UUID) async {
+        guard HKHealthStore.isHealthDataAvailable() else { return }
+
+        let cal = Calendar.current
+        let now = Date()
+        let endOfToday = cal.startOfDay(for: now)
+        let lastSync = (UserDefaults.standard.object(forKey: "healthkit_sync_date") as? Date)
+            ?? cal.date(byAdding: .day, value: -30, to: endOfToday) ?? endOfToday
+        let start = cal.startOfDay(for: lastSync)
+        guard start < endOfToday else { return }
+
+        async let stepsRows  = dailySumRows(.stepCount,           unit: .count(),                    from: start, to: endOfToday, type: "steps")
+        async let calsRows   = dailySumRows(.activeEnergyBurned,  unit: .kilocalorie(),              from: start, to: endOfToday, type: "active_calories")
+        async let rhrRows    = dailyRecentRows(.restingHeartRate, unit: HKUnit.count().unitDivided(by: .minute()), from: start, to: endOfToday, type: "resting_hr")
+        async let hrvRows    = dailyRecentRows(.heartRateVariabilitySDNN, unit: HKUnit.secondUnit(with: .milli),  from: start, to: endOfToday, type: "hrv")
+        async let vo2Rows    = dailyRecentRows(.vo2Max,           unit: HKUnit(from: "ml/kg*min"),   from: start, to: endOfToday, type: "vo2_max")
+        async let sleepRows  = sleepDailyRows(from: start, to: endOfToday)
+
+        let allRows = await stepsRows + calsRows + rhrRows + hrvRows + vo2Rows + sleepRows
+        guard !allRows.isEmpty else {
+            UserDefaults.standard.set(now, forKey: "healthkit_sync_date")
+            return
+        }
+
+        let payload = allRows.map { entry in
+            HealthMetricUpsert(
+                userId: userId.uuidString,
+                recordedAt: HealthKitManager.isoFormatter.string(from: entry.date),
+                metricType: entry.metricType,
+                value: entry.value,
+                source: "apple_health"
+            )
+        }
+
+        do {
+            try await supabase
+                .from("health_metrics")
+                .upsert(payload, onConflict: "user_id,recorded_at,metric_type")
+                .execute()
+            UserDefaults.standard.set(now, forKey: "healthkit_sync_date")
+        } catch {
+            print("[HealthKit] Supabase sync failed: \(error)")
+        }
+    }
+
+    private struct HMEntry { let date: Date; let metricType: String; let value: Double }
+
+    private static let isoFormatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f
+    }()
+
+    private func dailySumRows(_ identifier: HKQuantityTypeIdentifier, unit: HKUnit, from: Date, to: Date, type: String) async -> [HMEntry] {
+        let qType = HKQuantityType(identifier)
+        let predicate = HKQuery.predicateForSamples(withStart: from, end: to)
+        return await withCheckedContinuation { continuation in
+            let query = HKStatisticsCollectionQuery(
+                quantityType: qType,
+                quantitySamplePredicate: predicate,
+                options: .cumulativeSum,
+                anchorDate: Calendar.current.startOfDay(for: from),
+                intervalComponents: DateComponents(day: 1)
+            )
+            query.initialResultsHandler = { _, results, _ in
+                var out: [HMEntry] = []
+                results?.enumerateStatistics(from: from, to: to) { stat, _ in
+                    if let v = stat.sumQuantity()?.doubleValue(for: unit), v > 0 {
+                        out.append(HMEntry(date: stat.startDate, metricType: type, value: v))
+                    }
+                }
+                continuation.resume(returning: out)
+            }
+            store.execute(query)
+        }
+    }
+
+    private func dailyRecentRows(_ identifier: HKQuantityTypeIdentifier, unit: HKUnit, from: Date, to: Date, type: String) async -> [HMEntry] {
+        let qType = HKQuantityType(identifier)
+        let predicate = HKQuery.predicateForSamples(withStart: from, end: to)
+        return await withCheckedContinuation { continuation in
+            let query = HKStatisticsCollectionQuery(
+                quantityType: qType,
+                quantitySamplePredicate: predicate,
+                options: .discreteAverage,
+                anchorDate: Calendar.current.startOfDay(for: from),
+                intervalComponents: DateComponents(day: 1)
+            )
+            query.initialResultsHandler = { _, results, _ in
+                var out: [HMEntry] = []
+                results?.enumerateStatistics(from: from, to: to) { stat, _ in
+                    if let v = stat.averageQuantity()?.doubleValue(for: unit), v > 0 {
+                        out.append(HMEntry(date: stat.startDate, metricType: type, value: v))
+                    }
+                }
+                continuation.resume(returning: out)
+            }
+            store.execute(query)
+        }
+    }
+
+    private func sleepDailyRows(from: Date, to: Date) async -> [HMEntry] {
+        guard let type = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) else { return [] }
+        let predicate = HKQuery.predicateForSamples(withStart: from, end: to)
+        return await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(sampleType: type, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, samples, _ in
+                guard let samples = samples as? [HKCategorySample] else {
+                    continuation.resume(returning: [])
+                    return
+                }
+                // Bucket by "night ending" date: sample end date's calendar day.
+                var deepByDay:  [Date: Double] = [:]
+                var remByDay:   [Date: Double] = [:]
+                var totalByDay: [Date: Double] = [:]
+                let cal = Calendar.current
+                for s in samples {
+                    let day = cal.startOfDay(for: s.endDate)
+                    let minutes = s.endDate.timeIntervalSince(s.startDate) / 60.0
+                    switch s.value {
+                    case HKCategoryValueSleepAnalysis.asleepDeep.rawValue:
+                        deepByDay[day, default: 0] += minutes
+                        totalByDay[day, default: 0] += minutes
+                    case HKCategoryValueSleepAnalysis.asleepREM.rawValue:
+                        remByDay[day, default: 0] += minutes
+                        totalByDay[day, default: 0] += minutes
+                    case HKCategoryValueSleepAnalysis.asleepCore.rawValue,
+                         HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue:
+                        totalByDay[day, default: 0] += minutes
+                    default:
+                        break
+                    }
+                }
+                var out: [HMEntry] = []
+                for (day, m) in deepByDay  where m > 0 { out.append(HMEntry(date: day, metricType: "sleep_deep_minutes",  value: m)) }
+                for (day, m) in remByDay   where m > 0 { out.append(HMEntry(date: day, metricType: "sleep_rem_minutes",   value: m)) }
+                for (day, m) in totalByDay where m > 0 { out.append(HMEntry(date: day, metricType: "sleep_total_minutes", value: m)) }
+                continuation.resume(returning: out)
+            }
+            store.execute(query)
         }
     }
 }

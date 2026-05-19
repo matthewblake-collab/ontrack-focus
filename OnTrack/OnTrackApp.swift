@@ -10,6 +10,7 @@ import UserNotifications
 import HealthKit
 import Sentry
 import PostHog
+import Supabase
 
 // MARK: - AppDelegate
 
@@ -60,6 +61,9 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             if lastFetch != today {
                 await HealthKitManager.shared.fetchAll()
                 UserDefaults.standard.set(today, forKey: "healthkit_last_fetch_date")
+                if let userId = supabase.auth.currentUser?.id {
+                    await HealthKitManager.shared.syncToSupabase(userId: userId)
+                }
             }
 
             await NotificationManager.shared.refreshCheckInReminderIfNeeded()
