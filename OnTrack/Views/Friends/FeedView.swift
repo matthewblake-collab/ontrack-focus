@@ -82,7 +82,7 @@ struct FeedView: View {
                 }
             }
         }
-        .task {
+        .task(id: friendIDs) {
             await vm.fetchFeed(friendIDs: friendIDs, currentUserID: currentUserID)
         }
         .sheet(isPresented: $showFriendCode) {
