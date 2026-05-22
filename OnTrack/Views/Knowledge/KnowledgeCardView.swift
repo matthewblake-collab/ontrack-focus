@@ -5,7 +5,7 @@ struct KnowledgeCardView: View {
     let isSaved: Bool
     let onToggleSave: () -> Void
 
-    private static let cardBg = Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92)
+    private static let cardBg = Color(red: 0.05, green: 0.08, blue: 0.10)
 
     private var categoryColor: Color {
         switch item.category {
@@ -61,9 +61,7 @@ struct KnowledgeCardView: View {
         .padding(16)
         .background(Self.cardBg)
         .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .strokeBorder(categoryColor.opacity(0.3), lineWidth: 1)
-        )
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(categoryColor.opacity(0.25), lineWidth: 7))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(categoryColor.opacity(0.75), lineWidth: 1.5))
     }
 }
