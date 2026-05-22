@@ -21,7 +21,7 @@ struct OnboardingView: View {
 
     var body: some View {
         ZStack {
-            themeManager.backgroundColour().ignoresSafeArea()
+            Color(red: 0.04, green: 0.06, blue: 0.08).ignoresSafeArea()
 
             VStack(spacing: 0) {
                 // PROGRESS DOTS + SKIP
@@ -29,7 +29,7 @@ struct OnboardingView: View {
                     HStack(spacing: 8) {
                         ForEach(0..<4, id: \.self) { index in
                             Circle()
-                                .fill(index <= currentPage ? themeManager.currentTheme.primary : Color(.systemGray4))
+                                .fill(index <= currentPage ? themeManager.currentTheme.primary : Color.white.opacity(0.2))
                                 .frame(width: 8, height: 8)
                                 .animation(.easeInOut, value: currentPage)
                         }
@@ -116,12 +116,12 @@ struct OnboardingView: View {
                 Text("Welcome to OnTrack Focus")
                     .font(.largeTitle)
                     .fontWeight(.bold)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
 
                 Text("Your all-in-one tracker for health, habits and team performance")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.65))
                     .multilineTextAlignment(.center)
             }
             .padding(.horizontal, 32)
@@ -139,7 +139,7 @@ struct OnboardingView: View {
             Text("Everything you need")
                 .font(.largeTitle)
                 .fontWeight(.bold)
-                .foregroundStyle(.primary)
+                .foregroundStyle(.white)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
 
@@ -175,7 +175,7 @@ struct OnboardingView: View {
             Text("Set up your profile")
                 .font(.largeTitle)
                 .fontWeight(.bold)
-                .foregroundStyle(.primary)
+                .foregroundStyle(.white)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
 
@@ -200,7 +200,12 @@ struct OnboardingView: View {
             }
 
             TextField("Display name", text: $displayName)
-                .textFieldStyle(.roundedBorder)
+                .padding(12)
+                .background(Color(red: 0.08, green: 0.12, blue: 0.15))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.white.opacity(0.2), lineWidth: 1.5))
+                .foregroundStyle(.white)
+                .tint(themeManager.currentTheme.primary)
                 .padding(.horizontal, 40)
 
             Spacer()
@@ -217,11 +222,11 @@ struct OnboardingView: View {
                 Text("What are your goals?")
                     .font(.largeTitle)
                     .fontWeight(.bold)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
                 Text("Select all that apply")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.6))
             }
             .padding(.horizontal, 32)
 
@@ -244,10 +249,10 @@ struct OnboardingView: View {
                 Text(title)
                     .font(.subheadline)
                     .fontWeight(.bold)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(.white)
                 Text(subtitle)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.6))
             }
             Spacer()
         }
@@ -362,8 +367,8 @@ struct ChipWrapView: View {
                         .fontWeight(.medium)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
-                        .background(isSelected ? themeManager.currentTheme.primary : Color(.systemGray5))
-                        .foregroundStyle(isSelected ? .white : .primary)
+                        .background(isSelected ? themeManager.currentTheme.primary : Color(red: 0.08, green: 0.12, blue: 0.15))
+                        .foregroundStyle(isSelected ? .white : .white.opacity(0.75))
                         .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
