@@ -93,9 +93,9 @@ struct MainTabView: View {
                 } label: {
                     ZStack {
                         Circle()
-                            .fill(Color(red: 0.5, green: 0.3, blue: 0.9))
+                            .fill(themeManager.currentTheme.gradient)
                             .frame(width: 56, height: 56)
-                            .shadow(color: Color(red: 0.5, green: 0.3, blue: 0.9).opacity(0.5), radius: 10, y: 4)
+                            .shadow(color: themeManager.currentTheme.primary.opacity(0.55), radius: 12, y: 4)
                         Image(systemName: "plus")
                             .font(.system(size: 24, weight: .semibold))
                             .foregroundStyle(.white)
