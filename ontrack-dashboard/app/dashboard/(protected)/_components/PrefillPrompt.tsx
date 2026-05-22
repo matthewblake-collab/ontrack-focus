@@ -57,7 +57,7 @@ export function PrefillPrompt({
   if (done) return null
 
   return (
-    <div className="card border-l-2 border-accent/60 flex items-center gap-3 flex-wrap">
+    <div className="card border border-accent/30 bg-accent/5 flex items-center gap-3 flex-wrap">
       <p className="text-sm text-text-dim flex-1">
         Add <span className="font-medium text-white">{name}</span> to your stack?
       </p>

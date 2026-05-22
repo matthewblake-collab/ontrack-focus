@@ -40,7 +40,7 @@ export function SettingsClient({
             <button
               key={t}
               onClick={() => setThemePref(t)}
-              className={`px-3 py-1.5 rounded-lg text-sm capitalize ${
+              className={`inline-flex items-center min-h-[44px] px-4 rounded-lg text-sm capitalize ${
                 theme === t
                   ? 'bg-accent text-bg font-medium'
                   : 'bg-surface-2 text-text-dim hover:text-white'

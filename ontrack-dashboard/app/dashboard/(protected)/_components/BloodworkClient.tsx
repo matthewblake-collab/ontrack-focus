@@ -65,7 +65,7 @@ export function BloodworkClient({
         />
       </div>
 
-      <div className="card border-l-2 border-amber-500/60 text-xs text-text-dim">
+      <div className="card border border-amber-500/30 bg-amber-500/5 text-xs text-text-dim">
         <span className="font-medium text-amber-400">Disclaimer:</span> For personal reference only.
         Not medical advice. All testing and interpretation must be supervised by a licensed medical
         professional.

@@ -48,7 +48,7 @@ export function ThirtyDayChart({ rows }: { rows: CheckinRow[] }) {
             <button
               key={d}
               onClick={() => setRange(d)}
-              className={`px-2 py-0.5 rounded text-[11px] transition-colors ${
+              className={`inline-flex items-center min-h-[44px] px-3 rounded text-xs transition-colors ${
                 range === d ? 'bg-accent text-bg' : 'bg-surface-2 text-text-dim hover:text-white'
               }`}
             >
@@ -62,7 +62,7 @@ export function ThirtyDayChart({ rows }: { rows: CheckinRow[] }) {
           <button
             key={m.key}
             onClick={() => setEnabled(e => ({ ...e, [m.key]: !e[m.key] }))}
-            className={`px-2 py-0.5 rounded text-[11px] border transition-opacity ${
+            className={`inline-flex items-center min-h-[44px] px-3 rounded text-xs border transition-opacity ${
               enabled[m.key] ? '' : 'opacity-40'
             }`}
             style={{ borderColor: m.colour, color: enabled[m.key] ? m.colour : 'var(--text-muted)' }}

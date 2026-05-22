@@ -29,7 +29,7 @@ export function TodayCard({ today }: { today: CheckinRow | null }) {
   const expected = todayISO()
   if (!today || today.checkin_date !== expected) {
     return (
-      <div className="card border-l-2 border-amber-500/60">
+      <div className="card border border-amber-500/30 bg-amber-500/5">
         <h3 className="text-sm font-medium">No check-in for today</h3>
         <p className="text-xs text-text-dim mt-1">
           Log today&apos;s check-in in OnTrack Focus to see your score here.

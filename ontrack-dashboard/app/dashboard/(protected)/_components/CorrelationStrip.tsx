@@ -14,7 +14,7 @@ export function CorrelationStrip({ rows }: { rows: CheckinRow[] }) {
   const abs = Math.abs(pair.r)
   const strength = abs >= 0.6 ? 'strong' : abs >= 0.3 ? 'moderate' : 'weak'
   return (
-    <div className="card border-l-2 border-accent/60">
+    <div className="card border border-accent/30 bg-accent/5">
       <div className="flex items-baseline gap-2">
         <span className="text-[10px] text-accent uppercase tracking-wide">Insight</span>
         <span className="text-[10px] text-text-muted">{strength} signal</span>
