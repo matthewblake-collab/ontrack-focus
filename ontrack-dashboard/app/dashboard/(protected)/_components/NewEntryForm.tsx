@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { COMMON_TAGS, weekNumberFor, type JournalEntryRow } from '../_lib/journal'
+import { useModalA11y } from '../_lib/useModalA11y'
 
 export function NewEntryForm({
   userId,
@@ -16,6 +17,7 @@ export function NewEntryForm({
   onSaved: (row: JournalEntryRow) => void
 }) {
   const [open, setOpen] = useState(false)
+  const dialogRef = useModalA11y<HTMLDivElement>(open, () => setOpen(false))
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [body, setBody] = useState('')
   const [tag, setTag] = useState<string>('general')
@@ -64,11 +66,21 @@ export function NewEntryForm({
   }
 
   return (
-    <div className="fixed inset-0 z-30 flex items-end md:items-center justify-center bg-black/60 p-4">
-      <div className="card w-full max-w-md max-h-[90vh] overflow-y-auto">
+    <div
+      onClick={() => setOpen(false)}
+      className="fixed inset-0 z-30 flex items-end md:items-center justify-center bg-black/60 p-4"
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="newentry-title"
+        onClick={e => e.stopPropagation()}
+        className="card w-full max-w-md max-h-[90vh] overflow-y-auto"
+      >
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold">New journal entry</h3>
-          <button onClick={() => setOpen(false)} className="text-text-muted hover:text-white text-sm">
+          <h3 id="newentry-title" className="font-semibold">New journal entry</h3>
+          <button onClick={() => setOpen(false)} aria-label="Close" className="text-text-muted hover:text-white text-sm">
             Close
           </button>
         </div>

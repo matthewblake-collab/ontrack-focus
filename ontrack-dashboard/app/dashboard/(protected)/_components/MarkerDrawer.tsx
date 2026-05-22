@@ -3,6 +3,7 @@
 import { MARKER_INFO, markerLabel, type BloodMarkerRow } from '../_lib/bloodMarkers'
 import type { ProtocolType } from '../_lib/protocolConfig'
 import { MarkerTrendChart } from './MarkerTrendChart'
+import { useModalA11y } from '../_lib/useModalA11y'
 
 export function MarkerDrawer({
   marker,
@@ -15,16 +16,27 @@ export function MarkerDrawer({
   protocolType: ProtocolType | null
   onClose: () => void
 }) {
+  const dialogRef = useModalA11y<HTMLDivElement>(!!marker, onClose)
   if (!marker) return null
   const info = MARKER_INFO[marker]
   const protocolContext = info?.protocolContext && protocolType ? info.protocolContext[protocolType] : undefined
 
   return (
-    <div className="fixed inset-0 z-30 flex items-end md:items-center justify-center bg-black/60 p-4">
-      <div className="card w-full max-w-lg max-h-[90vh] overflow-y-auto">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-30 flex items-end md:items-center justify-center bg-black/60 p-4"
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="marker-title"
+        onClick={e => e.stopPropagation()}
+        className="card w-full max-w-lg max-h-[90vh] overflow-y-auto"
+      >
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold">{markerLabel(marker)}</h3>
-          <button onClick={onClose} className="text-text-muted hover:text-white text-sm">
+          <h3 id="marker-title" className="font-semibold">{markerLabel(marker)}</h3>
+          <button onClick={onClose} aria-label="Close" className="text-text-muted hover:text-white text-sm">
             Close
           </button>
         </div>
@@ -32,7 +44,7 @@ export function MarkerDrawer({
           <>
             <p className="text-sm text-text-dim mb-3">{info.description}</p>
             {protocolContext && (
-              <div className="card border-l-2 border-accent/60 mb-3 bg-accent/5">
+              <div className="card border border-accent/30 mb-3 bg-accent/5">
                 <p className="text-[10px] text-accent uppercase tracking-wide mb-1">
                   Context for {protocolType?.replace('_', ' ')}
                 </p>

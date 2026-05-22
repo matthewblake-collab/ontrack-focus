@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { BODY_METRIC_FIELDS, type BodyMetricsRow } from '../_lib/bodyMetrics'
+import { useModalA11y } from '../_lib/useModalA11y'
 
 export function BodyMetricsForm({
   userId,
@@ -17,6 +18,7 @@ export function BodyMetricsForm({
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const dialogRef = useModalA11y<HTMLDivElement>(open, () => setOpen(false))
 
   async function save() {
     setSaving(true)
@@ -68,11 +70,21 @@ export function BodyMetricsForm({
   }
 
   return (
-    <div className="fixed inset-0 z-30 flex items-end md:items-center justify-center bg-black/60 p-4">
-      <div className="card w-full max-w-md max-h-[90vh] overflow-y-auto">
+    <div
+      onClick={() => setOpen(false)}
+      className="fixed inset-0 z-30 flex items-end md:items-center justify-center bg-black/60 p-4"
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="bm-title"
+        onClick={e => e.stopPropagation()}
+        className="card w-full max-w-md max-h-[90vh] overflow-y-auto"
+      >
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold">Log body metrics</h3>
-          <button onClick={() => setOpen(false)} className="text-text-muted hover:text-white text-sm">
+          <h3 id="bm-title" className="font-semibold">Log body metrics</h3>
+          <button onClick={() => setOpen(false)} aria-label="Close" className="text-text-muted hover:text-white text-sm">
             Close
           </button>
         </div>

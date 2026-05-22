@@ -32,25 +32,33 @@ export default function LoginPage() {
         <h1 className="text-xl font-semibold mb-1">OnTrack Dashboard</h1>
         <p className="text-sm text-text-dim mb-6">Sign in with your OnTrack account</p>
         <form onSubmit={signIn} className="space-y-3">
-          <input
-            type="email"
-            className="input"
-            placeholder="Email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            required
-            autoComplete="email"
-          />
-          <input
-            type="password"
-            className="input"
-            placeholder="Password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            required
-            autoComplete="current-password"
-          />
-          {error && <p className="text-sm text-red-400">{error}</p>}
+          <div>
+            <label htmlFor="login-email" className="block text-xs text-text-dim mb-1">Email</label>
+            <input
+              id="login-email"
+              type="email"
+              className="input"
+              placeholder="you@example.com"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+              autoComplete="email"
+            />
+          </div>
+          <div>
+            <label htmlFor="login-password" className="block text-xs text-text-dim mb-1">Password</label>
+            <input
+              id="login-password"
+              type="password"
+              className="input"
+              placeholder="Your password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+              autoComplete="current-password"
+            />
+          </div>
+          {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
           <button type="submit" className="btn-primary w-full" disabled={loading}>
             {loading ? 'Signing in…' : 'Sign in'}
           </button>

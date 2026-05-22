@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { SupplementRow } from '../_lib/adherence'
+import { useModalA11y } from '../_lib/useModalA11y'
 
 export function SupplementEditDrawer({
   supplement,
@@ -18,6 +19,7 @@ export function SupplementEditDrawer({
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const dialogRef = useModalA11y<HTMLDivElement>(!!supplement, onClose)
 
   useEffect(() => {
     if (supplement) {
@@ -54,11 +56,21 @@ export function SupplementEditDrawer({
   }
 
   return (
-    <div className="fixed inset-0 z-30 flex items-end md:items-center justify-center bg-black/60 p-4">
-      <div className="card w-full max-w-sm">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-30 flex items-end md:items-center justify-center bg-black/60 p-4"
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="suppedit-title"
+        onClick={e => e.stopPropagation()}
+        className="card w-full max-w-sm"
+      >
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold">{supplement.name}</h3>
-          <button onClick={onClose} className="text-text-muted hover:text-white text-sm">
+          <h3 id="suppedit-title" className="font-semibold">{supplement.name}</h3>
+          <button onClick={onClose} aria-label="Close" className="text-text-muted hover:text-white text-sm">
             Close
           </button>
         </div>
