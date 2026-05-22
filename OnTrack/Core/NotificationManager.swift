@@ -154,6 +154,13 @@ final class NotificationManager: NSObject {
         let token = tokenData.map { String(format: "%02x", $0) }.joined()
         print("[Notifications] Device token received: \(token)")
         pendingDeviceToken = token
+        // If a user is already authenticated, persist immediately. The login-time
+        // saveTokenToProfile (OnTrackApp .onChange) runs once and early-returns when
+        // the APNs token hasn't arrived yet; without this, a token delivered AFTER
+        // login would sit in pendingDeviceToken and never reach the DB. Idempotent.
+        if let userId = supabase.auth.currentUser?.id {
+            Task { await saveTokenToProfile(userId: userId) }
+        }
     }
 
     func saveTokenToProfile(userId: UUID) async {
