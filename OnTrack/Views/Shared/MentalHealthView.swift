@@ -110,8 +110,10 @@ struct MentalHealthView: View {
                             }
                             .foregroundStyle(.white)
                             .padding(14)
-                            .background(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
+                            .background(Color(red: 0.05, green: 0.08, blue: 0.10))
                             .clipShape(RoundedRectangle(cornerRadius: 14))
+                            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(themeManager.currentTheme.primary.opacity(0.25), lineWidth: 7))
+                            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(themeManager.currentTheme.primary.opacity(0.75), lineWidth: 1.5))
                         }
                         .buttonStyle(.plain)
 
@@ -212,14 +214,10 @@ struct MentalHealthView: View {
                 }
                 .padding(12)
                 .frame(maxWidth: .infinity, minHeight: 72)
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16)
-                                .stroke(isCheckedInToday ? Color.green.opacity(0.6) : Color.white.opacity(0.12), lineWidth: 1.5)
-                        )
-                )
+                .background(Color(red: 0.05, green: 0.08, blue: 0.10))
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder((isCheckedInToday ? Color.green : themeManager.currentTheme.primary).opacity(0.25), lineWidth: 7))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder((isCheckedInToday ? Color.green : themeManager.currentTheme.primary).opacity(0.75), lineWidth: 1.5))
             }
 
             // --- My Progress card (right side) ---
@@ -308,14 +306,10 @@ struct MentalHealthView: View {
             }
             .padding(12)
             .frame(maxWidth: .infinity, minHeight: 72)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(isBreathworkDoneToday ? Color.green.opacity(0.6) : Color.white.opacity(0.12), lineWidth: 1.5)
-                    )
-            )
+            .background(Color(red: 0.05, green: 0.08, blue: 0.10))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder((isBreathworkDoneToday ? Color.green : themeManager.currentTheme.primary).opacity(0.25), lineWidth: 7))
+            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder((isBreathworkDoneToday ? Color.green : themeManager.currentTheme.primary).opacity(0.75), lineWidth: 1.5))
         }
         .buttonStyle(.plain)
     }
@@ -350,14 +344,10 @@ struct MentalHealthView: View {
             }
             .padding(12)
             .frame(maxWidth: .infinity, minHeight: 72)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.white.opacity(0.12), lineWidth: 1.5)
-                    )
-            )
+            .background(Color(red: 0.05, green: 0.08, blue: 0.10))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(themeManager.currentTheme.primary.opacity(0.25), lineWidth: 7))
+            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(themeManager.currentTheme.primary.opacity(0.75), lineWidth: 1.5))
         }
         .buttonStyle(.plain)
     }
@@ -383,10 +373,8 @@ struct MentalHealthView: View {
             }
         }
         .padding(4)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
-        )
+        .background(Color(red: 0.05, green: 0.08, blue: 0.10))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 
     // MARK: - Card Carousel
@@ -398,10 +386,10 @@ struct MentalHealthView: View {
                 ForEach(cardOrder, id: \.self) { cardId in
                     cardContent(cardId: cardId, userId: userId)
                         .frame(width: 320, height: 260)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
-                        )
+                        .background(Color(red: 0.05, green: 0.08, blue: 0.10))
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.green.opacity(0.22), lineWidth: 7))
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.green.opacity(0.65), lineWidth: 1.5))
                         .draggable(cardId)
                         .dropDestination(for: String.self) { droppedItems, _ in
                             guard let source = droppedItems.first,
@@ -702,18 +690,22 @@ private struct HabitsTrendCard: View {
             } else {
                 VStack(spacing: 8) {
                     ZStack {
-                        Circle()
-                            .stroke(Color.white.opacity(0.1), lineWidth: 16)
-                        Circle()
-                            .trim(from: 0, to: pct)
-                            .stroke(Color.green, style: StrokeStyle(lineWidth: 16, lineCap: .round))
-                            .rotationEffect(.degrees(-90))
-                            .animation(.easeInOut, value: pct)
-                        Text("\(Int(pct * 100))%")
-                            .font(.system(size: 32, weight: .bold, design: .rounded))
-                            .foregroundColor(.white)
+                        RadialGradient(colors: [Color.green.opacity(0.15), .clear], center: .center, startRadius: 0, endRadius: 80)
+                            .frame(width: 160, height: 160)
+                        ZStack {
+                            Circle()
+                                .stroke(Color.white.opacity(0.1), lineWidth: 16)
+                            Circle()
+                                .trim(from: 0, to: pct)
+                                .stroke(Color.green, style: StrokeStyle(lineWidth: 16, lineCap: .round))
+                                .rotationEffect(.degrees(-90))
+                                .animation(.easeInOut, value: pct)
+                            Text("\(Int(pct * 100))%")
+                                .font(.system(size: 32, weight: .bold, design: .rounded))
+                                .foregroundColor(.white)
+                        }
+                        .frame(width: 120, height: 120)
                     }
-                    .frame(width: 120, height: 120)
                     Text("of days completed")
                         .font(.system(size: 13))
                         .foregroundColor(.gray)
@@ -759,18 +751,22 @@ private struct SupplementsTrendCard: View {
             } else {
                 VStack(spacing: 8) {
                     ZStack {
-                        Circle()
-                            .stroke(Color.white.opacity(0.1), lineWidth: 16)
-                        Circle()
-                            .trim(from: 0, to: pct)
-                            .stroke(Color.green, style: StrokeStyle(lineWidth: 16, lineCap: .round))
-                            .rotationEffect(.degrees(-90))
-                            .animation(.easeInOut, value: pct)
-                        Text("\(Int(pct * 100))%")
-                            .font(.system(size: 32, weight: .bold, design: .rounded))
-                            .foregroundColor(.white)
+                        RadialGradient(colors: [Color.green.opacity(0.15), .clear], center: .center, startRadius: 0, endRadius: 80)
+                            .frame(width: 160, height: 160)
+                        ZStack {
+                            Circle()
+                                .stroke(Color.white.opacity(0.1), lineWidth: 16)
+                            Circle()
+                                .trim(from: 0, to: pct)
+                                .stroke(Color.green, style: StrokeStyle(lineWidth: 16, lineCap: .round))
+                                .rotationEffect(.degrees(-90))
+                                .animation(.easeInOut, value: pct)
+                            Text("\(Int(pct * 100))%")
+                                .font(.system(size: 32, weight: .bold, design: .rounded))
+                                .foregroundColor(.white)
+                        }
+                        .frame(width: 120, height: 120)
                     }
-                    .frame(width: 120, height: 120)
                     Text("of days completed")
                         .font(.system(size: 13))
                         .foregroundColor(.gray)
