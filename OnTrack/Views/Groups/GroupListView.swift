@@ -134,7 +134,7 @@ struct GroupListView: View {
                         }
                     }
                     .padding(.horizontal)
-                    .padding(.top, 8)
+                    .padding(.top, 12)
                     .padding(.bottom, 20)
 
                     // GROUPS
@@ -164,8 +164,8 @@ struct GroupListView: View {
                                         .fontWeight(.semibold)
                                         .frame(maxWidth: .infinity)
                                         .padding()
-                                        .background(Color.white)
-                                        .foregroundStyle(Color.black)
+                                        .background(themeManager.currentTheme.gradient)
+                                        .foregroundStyle(.white)
                                         .clipShape(RoundedRectangle(cornerRadius: 12))
                                 }
                                 Button {
@@ -175,9 +175,11 @@ struct GroupListView: View {
                                         .fontWeight(.semibold)
                                         .frame(maxWidth: .infinity)
                                         .padding()
-                                        .background(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
-                                        .foregroundStyle(.white)
+                                        .background(Color(red: 0.05, green: 0.08, blue: 0.10))
                                         .clipShape(RoundedRectangle(cornerRadius: 12))
+                                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(themeManager.currentTheme.primary.opacity(0.25), lineWidth: 7))
+                                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(themeManager.currentTheme.primary.opacity(0.75), lineWidth: 1.5))
+                                        .foregroundStyle(.white)
                                 }
                             }
                             .padding(.horizontal)
@@ -216,12 +218,10 @@ struct GroupListView: View {
                                                 .foregroundStyle(.white.opacity(0.5))
                                         }
                                         .padding(16)
-                                        .background(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
+                                        .background(Color(red: 0.05, green: 0.08, blue: 0.10))
                                         .clipShape(RoundedRectangle(cornerRadius: 16))
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 16)
-                                                .strokeBorder(themeManager.currentTheme.primary.opacity(0.6), lineWidth: 2)
-                                        )
+                                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(themeManager.currentTheme.primary.opacity(0.25), lineWidth: 7))
+                                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(themeManager.currentTheme.primary.opacity(0.80), lineWidth: 1.5))
                                         .padding(.horizontal)
                                     }
                                     .buttonStyle(.plain)
