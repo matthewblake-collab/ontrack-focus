@@ -60,3 +60,6 @@ project.pbxproj.bak
 
 # System 06 UI scratch dir
 .ui-system/
+
+# graphify code knowledge graph (local only, never commit)
+graphify-out/

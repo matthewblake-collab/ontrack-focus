@@ -1,0 +1,9 @@
+# graphify exclusions - keep the code graph on the real source tree.
+# Nested git worktrees are full duplicate copies; build output is minified
+# junk. Exclude both so the graph + god-nodes reflect real source.
+.claude/worktrees/
+**/.netlify/
+**/.next/
+**/node_modules/
+**/.build/
+**/DerivedData/
