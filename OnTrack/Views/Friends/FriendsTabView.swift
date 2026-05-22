@@ -163,8 +163,9 @@ struct FriendsTabView: View {
                 }
             }
             .padding(10)
-            .background(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
-            .cornerRadius(12)
+            .background(Color(red: 0.05, green: 0.08, blue: 0.10))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.white.opacity(0.15), lineWidth: 1.5))
             .padding(.horizontal)
             .padding(.vertical, 12)
 
@@ -198,10 +199,10 @@ struct FriendsTabView: View {
 
                     FriendsPBView(friendsVM: friendsVM)
                         .padding(.vertical, 8)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
-                        )
+                        .background(Color(red: 0.05, green: 0.08, blue: 0.10))
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color(red: 1.0, green: 0.78, blue: 0.1).opacity(0.25), lineWidth: 7))
+                        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color(red: 1.0, green: 0.78, blue: 0.1).opacity(0.70), lineWidth: 1.5))
                         .padding(.horizontal, 16)
                         .padding(.bottom, 16)
                 }
@@ -251,7 +252,7 @@ struct FriendsTabView: View {
                         .foregroundColor(.white.opacity(0.45))
                 }
                 .padding(14)
-                .background(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
+                .background(Color(red: 0.05, green: 0.08, blue: 0.10))
             }
             .buttonStyle(.plain)
 
@@ -277,10 +278,12 @@ struct FriendsTabView: View {
                         }
                     }
                 }
-                .background(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
+                .background(Color(red: 0.05, green: 0.08, blue: 0.10))
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(themeManager.currentTheme.primary.opacity(0.25), lineWidth: 7))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(themeManager.currentTheme.primary.opacity(0.70), lineWidth: 1.5))
     }
 
     @ViewBuilder
@@ -314,7 +317,7 @@ struct FriendsTabView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
+        .background(Color(red: 0.05, green: 0.08, blue: 0.10))
     }
 
     // MARK: - Requests content
