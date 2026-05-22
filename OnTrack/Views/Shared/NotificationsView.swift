@@ -52,10 +52,10 @@ struct NotificationsView: View {
                             // FRIEND REQUESTS
                             if !friendsVM.pendingReceived.isEmpty {
                                 VStack(alignment: .leading, spacing: 10) {
-                                    Text("Friend Requests")
-                                        .font(.caption)
-                                        .fontWeight(.semibold)
-                                        .foregroundStyle(.white.opacity(0.7))
+                                    Text("FRIEND REQUESTS")
+                                        .font(.system(size: 11, weight: .heavy))
+                                        .tracking(1.4)
+                                        .foregroundStyle(themeManager.currentTheme.primary.opacity(0.7))
                                         .padding(.horizontal)
 
                                     ForEach(friendsVM.pendingReceived) { friendship in
@@ -91,7 +91,7 @@ struct NotificationsView: View {
                                                         .foregroundStyle(.white)
                                                         .padding(.horizontal, 12)
                                                         .padding(.vertical, 6)
-                                                        .background(Color(red: 0.08, green: 0.35, blue: 0.45))
+                                                        .background(themeManager.currentTheme.primary.opacity(0.85))
                                                         .clipShape(Capsule())
                                                 }
 
@@ -113,8 +113,16 @@ struct NotificationsView: View {
                                             }
                                         }
                                         .padding()
-                                        .background(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
+                                        .background(Color(red: 0.05, green: 0.08, blue: 0.10))
                                         .clipShape(RoundedRectangle(cornerRadius: 14))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 14)
+                                                .strokeBorder(themeManager.currentTheme.primary.opacity(0.25), lineWidth: 7)
+                                        )
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 14)
+                                                .strokeBorder(themeManager.currentTheme.primary.opacity(0.75), lineWidth: 1.5)
+                                        )
                                         .padding(.horizontal)
                                     }
                                 }
@@ -123,10 +131,10 @@ struct NotificationsView: View {
                             // HABIT INVITES
                             if !habitInvites.isEmpty {
                                 VStack(alignment: .leading, spacing: 10) {
-                                    Text("Habit Invites")
-                                        .font(.caption)
-                                        .fontWeight(.semibold)
-                                        .foregroundStyle(.white.opacity(0.7))
+                                    Text("HABIT INVITES")
+                                        .font(.system(size: 11, weight: .heavy))
+                                        .tracking(1.4)
+                                        .foregroundStyle(themeManager.currentTheme.primary.opacity(0.7))
                                         .padding(.horizontal)
 
                                     ForEach(habitInvites) { invite in
@@ -160,7 +168,7 @@ struct NotificationsView: View {
                                                         .foregroundStyle(.white)
                                                         .padding(.horizontal, 12)
                                                         .padding(.vertical, 6)
-                                                        .background(Color(red: 0.08, green: 0.35, blue: 0.45))
+                                                        .background(themeManager.currentTheme.primary.opacity(0.85))
                                                         .clipShape(Capsule())
                                                 }
 
@@ -182,8 +190,16 @@ struct NotificationsView: View {
                                             }
                                         }
                                         .padding()
-                                        .background(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
+                                        .background(Color(red: 0.05, green: 0.08, blue: 0.10))
                                         .clipShape(RoundedRectangle(cornerRadius: 14))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 14)
+                                                .strokeBorder(themeManager.currentTheme.primary.opacity(0.25), lineWidth: 7)
+                                        )
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 14)
+                                                .strokeBorder(themeManager.currentTheme.primary.opacity(0.75), lineWidth: 1.5)
+                                        )
                                         .padding(.horizontal)
                                     }
                                 }
@@ -191,10 +207,10 @@ struct NotificationsView: View {
                             // GROUP INVITES
                             if !groupInvites.isEmpty {
                                 VStack(alignment: .leading, spacing: 10) {
-                                    Text("Group Invites")
-                                        .font(.caption)
-                                        .fontWeight(.semibold)
-                                        .foregroundStyle(.white.opacity(0.7))
+                                    Text("GROUP INVITES")
+                                        .font(.system(size: 11, weight: .heavy))
+                                        .tracking(1.4)
+                                        .foregroundStyle(themeManager.currentTheme.primary.opacity(0.7))
                                         .padding(.horizontal)
 
                                     ForEach(groupInvites) { invite in
@@ -228,7 +244,7 @@ struct NotificationsView: View {
                                                         .foregroundStyle(.white)
                                                         .padding(.horizontal, 12)
                                                         .padding(.vertical, 6)
-                                                        .background(Color(red: 0.08, green: 0.35, blue: 0.45))
+                                                        .background(themeManager.currentTheme.primary.opacity(0.85))
                                                         .clipShape(Capsule())
                                                 }
 
@@ -250,8 +266,16 @@ struct NotificationsView: View {
                                             }
                                         }
                                         .padding()
-                                        .background(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
+                                        .background(Color(red: 0.05, green: 0.08, blue: 0.10))
                                         .clipShape(RoundedRectangle(cornerRadius: 14))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 14)
+                                                .strokeBorder(themeManager.currentTheme.primary.opacity(0.25), lineWidth: 7)
+                                        )
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 14)
+                                                .strokeBorder(themeManager.currentTheme.primary.opacity(0.75), lineWidth: 1.5)
+                                        )
                                         .padding(.horizontal)
                                     }
                                 }
