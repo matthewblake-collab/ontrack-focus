@@ -64,7 +64,7 @@ struct KnowledgeLibraryView: View {
                             .autocorrectionDisabled()
                     }
                     .padding(10)
-                    .background(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
+                    .background(Color(red: 0.05, green: 0.08, blue: 0.10))
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                     .padding(.horizontal)
                     .padding(.bottom, 8)
