@@ -83,12 +83,10 @@ struct SupplementsView: View {
                                 .foregroundStyle(themeManager.currentTheme.primary)
                         }
                         .padding(12)
-                        .background(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
+                        .background(Color(red: 0.05, green: 0.08, blue: 0.10))
                         .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .strokeBorder(Color(red: 0.5, green: 0.3, blue: 0.9).opacity(0.3), lineWidth: 1)
-                        )
+                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color(red: 0.5, green: 0.3, blue: 0.9).opacity(0.25), lineWidth: 7))
+                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color(red: 0.5, green: 0.3, blue: 0.9).opacity(0.80), lineWidth: 1.5))
                     }
                     .buttonStyle(.plain)
                     .padding(.horizontal, 16)
@@ -530,12 +528,10 @@ struct ProtocolRowView: View {
             Spacer()
         }
         .padding()
-        .background(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
+        .background(Color(red: 0.05, green: 0.08, blue: 0.10))
         .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(themeManager.currentTheme.primary.opacity(0.4), lineWidth: 1)
-        )
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(themeManager.currentTheme.primary.opacity(0.25), lineWidth: 7))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(themeManager.currentTheme.primary.opacity(0.75), lineWidth: 1.5))
     }
 }
 
@@ -767,7 +763,7 @@ struct MyStackView: View {
                             }
                         }
                     }
-                    .listRowBackground(themeManager.cardColour())
+                    .listRowBackground(Color(red: 0.05, green: 0.08, blue: 0.10))
                     .listRowSeparatorTint(Color.white.opacity(0.1))
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         Button(role: .destructive) {
@@ -800,7 +796,7 @@ struct StackAnalysisCard: View {
     let onAnalyse: () -> Void
     let onOpenKnowledge: (KnowledgeItem) -> Void
 
-    private let cardBg = Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92)
+    private let cardBg = Color(red: 0.05, green: 0.08, blue: 0.10)
     private let purple = Color(red: 0.5, green: 0.3, blue: 0.9)
 
     var body: some View {
@@ -911,10 +907,8 @@ struct StackAnalysisCard: View {
         .padding(14)
         .background(cardBg)
         .clipShape(RoundedRectangle(cornerRadius: 14))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .strokeBorder(purple.opacity(0.3), lineWidth: 1)
-        )
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(purple.opacity(0.25), lineWidth: 7))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(purple.opacity(0.80), lineWidth: 1.5))
     }
 
     @ViewBuilder
