@@ -146,8 +146,10 @@ struct GroupDetailView: View {
                             .foregroundStyle(.white)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 12)
-                            .background(Color.white.opacity(0.12))
+                            .background(Color(red: 0.05, green: 0.08, blue: 0.10))
                             .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(themeManager.currentTheme.primary.opacity(0.25), lineWidth: 7))
+                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(themeManager.currentTheme.primary.opacity(0.75), lineWidth: 1.5))
                         }
                         .padding(.horizontal)
                         .padding(.bottom, 20)
@@ -185,8 +187,10 @@ struct GroupDetailView: View {
                                     .foregroundStyle(.white.opacity(0.5))
                             }
                             .padding()
-                            .background(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
+                            .background(Color(red: 0.05, green: 0.08, blue: 0.10))
                             .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color(red: 1.0, green: 0.78, blue: 0.1).opacity(0.25), lineWidth: 7))
+                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color(red: 1.0, green: 0.78, blue: 0.1).opacity(0.75), lineWidth: 1.5))
                             .padding(.horizontal)
                         }
                         .buttonStyle(.plain)
@@ -200,8 +204,10 @@ struct GroupDetailView: View {
                                     .foregroundStyle(.white.opacity(0.5))
                             }
                             .padding()
-                            .background(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
+                            .background(Color(red: 0.05, green: 0.08, blue: 0.10))
                             .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(themeManager.currentTheme.primary.opacity(0.25), lineWidth: 7))
+                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(themeManager.currentTheme.primary.opacity(0.75), lineWidth: 1.5))
                             .padding(.horizontal)
                         }
                         .buttonStyle(.plain)
@@ -215,8 +221,10 @@ struct GroupDetailView: View {
                                     .foregroundStyle(.white.opacity(0.5))
                             }
                             .padding()
-                            .background(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
+                            .background(Color(red: 0.05, green: 0.08, blue: 0.10))
                             .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color(red: 1.0, green: 0.78, blue: 0.1).opacity(0.25), lineWidth: 7))
+                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color(red: 1.0, green: 0.78, blue: 0.1).opacity(0.75), lineWidth: 1.5))
                             .padding(.horizontal)
                         }
                         .buttonStyle(.plain)
@@ -236,8 +244,10 @@ struct GroupDetailView: View {
                                             .foregroundStyle(.white.opacity(0.5))
                                     }
                                     .padding()
-                                    .background(Color.purple.opacity(0.3))
+                                    .background(Color(red: 0.05, green: 0.08, blue: 0.10))
                                     .clipShape(RoundedRectangle(cornerRadius: 12))
+                                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color(red: 0.5, green: 0.3, blue: 0.9).opacity(0.25), lineWidth: 7))
+                                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color(red: 0.5, green: 0.3, blue: 0.9).opacity(0.80), lineWidth: 1.5))
                                     .padding(.horizontal)
                                 }
                                 .buttonStyle(.plain)
@@ -265,8 +275,9 @@ struct GroupDetailView: View {
                                 Spacer()
                             }
                             .padding()
-                            .background(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
+                            .background(Color(red: 0.05, green: 0.08, blue: 0.10))
                             .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.red.opacity(0.60), lineWidth: 1.5))
                             .padding(.horizontal)
                         }
 
@@ -800,8 +811,9 @@ struct MemberRowView: View {
         }
         .padding(.horizontal)
         .padding(.vertical, 10)
-        .background(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
+        .background(Color(red: 0.05, green: 0.08, blue: 0.10))
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
         .padding(.horizontal)
         .padding(.vertical, 2)
     }
@@ -927,8 +939,10 @@ struct GroupInsightCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .background(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
+        .background(Color(red: 0.05, green: 0.08, blue: 0.10))
         .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.white.opacity(0.20), lineWidth: 7))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.white.opacity(0.55), lineWidth: 1.5))
     }
 }
 
@@ -967,7 +981,7 @@ private struct InviteMembersSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.black.opacity(0.95).ignoresSafeArea()
+                Color(red: 0.03, green: 0.05, blue: 0.07).ignoresSafeArea()
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
@@ -991,8 +1005,9 @@ private struct InviteMembersSheet: View {
                                         inviteRow(friend: friend)
                                     }
                                 }
-                                .background(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
+                                .background(Color(red: 0.05, green: 0.08, blue: 0.10))
                                 .clipShape(RoundedRectangle(cornerRadius: 14))
+                                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
                                 .padding(.horizontal)
                             }
                         }
@@ -1025,8 +1040,9 @@ private struct InviteMembersSheet: View {
                                 }
                             }
                             .padding(14)
-                            .background(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
+                            .background(Color(red: 0.05, green: 0.08, blue: 0.10))
                             .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
                             .padding(.horizontal)
                         }
                     }
