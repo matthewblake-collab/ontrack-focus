@@ -18,68 +18,88 @@ struct SessionDetailView: View {
 
                 // DETAILS SECTION
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Details")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal)
+                    Text("DETAILS")
+                        .font(.system(size: 11, weight: .heavy))
+                        .tracking(1.4)
+                        .foregroundStyle(themeManager.currentTheme.primary.opacity(0.7))
+                        .padding(.horizontal, 20)
                         .padding(.top, 20)
 
                     VStack(alignment: .leading, spacing: 12) {
                         if let description = session.description, !description.isEmpty {
                             Text(description)
+                                .foregroundStyle(.white)
                         }
                         if let location = session.location, !location.isEmpty {
                             Label(location, systemImage: "mappin.and.ellipse")
+                                .foregroundStyle(.white)
                         }
                         if let proposedAt = session.proposedAt {
                             Label(proposedAt.formatted(date: .complete, time: .shortened),
                                   systemImage: "calendar")
+                                .foregroundStyle(.white)
                         }
                         HStack {
                             Text("Status")
+                                .foregroundStyle(.white)
                             Spacer()
                             StatusBadge(status: session.status)
                         }
                         if let rule = session.recurrenceRule, rule != "none" {
                             Label("Repeats \(rule.capitalized)", systemImage: "repeat")
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(.white.opacity(0.6))
                         }
                     }
-                    .padding()
-                    .background(Color(.systemBackground))
+                    .padding(16)
+                    .background(Color(red: 0.05, green: 0.08, blue: 0.10))
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(themeManager.currentTheme.primary.opacity(0.25), lineWidth: 7))
+                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(themeManager.currentTheme.primary.opacity(0.75), lineWidth: 1.5))
+                    .padding(.horizontal, 16)
                 }
 
                 // RSVP SECTION
                 if session.status == "upcoming", let userId = appState.currentUser?.id {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("RSVP")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal)
+                            .font(.system(size: 11, weight: .heavy))
+                            .tracking(1.4)
+                            .foregroundStyle(themeManager.currentTheme.primary.opacity(0.7))
+                            .padding(.horizontal, 20)
                             .padding(.top, 20)
 
                         RSVPPickerView(sessionId: session.id, userId: userId)
-                            .padding()
-                            .background(Color(.systemBackground))
+                            .padding(16)
+                            .background(Color(red: 0.05, green: 0.08, blue: 0.10))
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
+                            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(themeManager.currentTheme.primary.opacity(0.25), lineWidth: 7))
+                            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(themeManager.currentTheme.primary.opacity(0.75), lineWidth: 1.5))
+                            .padding(.horizontal, 16)
                     }
                 }
 
                 // AVAILABILITY SECTION
                 if session.status == "upcoming" {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Availability")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal)
+                        Text("AVAILABILITY")
+                            .font(.system(size: 11, weight: .heavy))
+                            .tracking(1.4)
+                            .foregroundStyle(themeManager.currentTheme.primary.opacity(0.7))
+                            .padding(.horizontal, 20)
                             .padding(.top, 20)
 
                         NavigationLink(destination: AvailabilityView(session: session)) {
                             HStack {
                                 Label("View & Add Availability", systemImage: "clock")
+                                    .foregroundStyle(.white)
                                 Spacer()
                             }
-                            .padding()
-                            .background(Color(.systemBackground))
+                            .padding(16)
+                            .background(Color(red: 0.05, green: 0.08, blue: 0.10))
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
+                            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(themeManager.currentTheme.primary.opacity(0.25), lineWidth: 7))
+                            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(themeManager.currentTheme.primary.opacity(0.75), lineWidth: 1.5))
+                            .padding(.horizontal, 16)
                         }
                         .buttonStyle(.plain)
                     }
@@ -92,9 +112,9 @@ struct SessionDetailView: View {
                     } label: {
                         HStack {
                             Image(systemName: reminderSet ? "bell.fill" : "bell")
-                                .foregroundStyle(reminderSet ? Color(red: 0.08, green: 0.35, blue: 0.45) : .secondary)
+                                .foregroundStyle(reminderSet ? Color(red: 0.08, green: 0.35, blue: 0.45) : .white.opacity(0.6))
                             Text(reminderSet ? "Reminder Set" : "Set Reminder")
-                                .foregroundStyle(reminderSet ? Color(red: 0.08, green: 0.35, blue: 0.45) : .primary)
+                                .foregroundStyle(reminderSet ? Color(red: 0.08, green: 0.35, blue: 0.45) : .white)
                         }
                     }
                     .confirmationDialog("Set Reminder", isPresented: $showReminderOptions) {
@@ -118,46 +138,62 @@ struct SessionDetailView: View {
                         }
                         Button("Cancel", role: .cancel) {}
                     }
-                    .padding()
+                    .padding(16)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(.systemBackground))
+                    .background(Color(red: 0.05, green: 0.08, blue: 0.10))
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(themeManager.currentTheme.primary.opacity(0.25), lineWidth: 7))
+                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(themeManager.currentTheme.primary.opacity(0.75), lineWidth: 1.5))
+                    .padding(.horizontal, 16)
                     .padding(.top, 20)
                 }
 
                 // COMMENTS SECTION
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Comments")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal)
+                    Text("COMMENTS")
+                        .font(.system(size: 11, weight: .heavy))
+                        .tracking(1.4)
+                        .foregroundStyle(themeManager.currentTheme.primary.opacity(0.7))
+                        .padding(.horizontal, 20)
                         .padding(.top, 20)
 
                     NavigationLink(destination: CommentsView(session: session)) {
                         HStack {
                             Label("View Comments", systemImage: "bubble.left.and.bubble.right")
+                                .foregroundStyle(.white)
                             Spacer()
                         }
-                        .padding()
-                        .background(Color(.systemBackground))
+                        .padding(16)
+                        .background(Color(red: 0.05, green: 0.08, blue: 0.10))
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(themeManager.currentTheme.primary.opacity(0.25), lineWidth: 7))
+                        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(themeManager.currentTheme.primary.opacity(0.75), lineWidth: 1.5))
+                        .padding(.horizontal, 16)
                     }
                     .buttonStyle(.plain)
                 }
 
                 // ATTENDANCE SECTION
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Attendance")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal)
+                    Text("ATTENDANCE")
+                        .font(.system(size: 11, weight: .heavy))
+                        .tracking(1.4)
+                        .foregroundStyle(themeManager.currentTheme.primary.opacity(0.7))
+                        .padding(.horizontal, 20)
                         .padding(.top, 20)
 
                     NavigationLink(destination: AttendanceView(session: session, group: group)) {
                         HStack {
                             Label("View Attendance", systemImage: "person.fill.checkmark")
+                                .foregroundStyle(.white)
                             Spacer()
                         }
-                        .padding()
-                        .background(Color(.systemBackground))
+                        .padding(16)
+                        .background(Color(red: 0.05, green: 0.08, blue: 0.10))
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(themeManager.currentTheme.primary.opacity(0.25), lineWidth: 7))
+                        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(themeManager.currentTheme.primary.opacity(0.75), lineWidth: 1.5))
+                        .padding(.horizontal, 16)
                     }
                     .buttonStyle(.plain)
                 }
@@ -173,8 +209,12 @@ struct SessionDetailView: View {
                         } label: {
                             Label("Cancel This Session", systemImage: "xmark.circle")
                                 .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color(.systemBackground))
+                                .padding(16)
+                                .background(Color(red: 0.05, green: 0.08, blue: 0.10))
+                                .clipShape(RoundedRectangle(cornerRadius: 14))
+                                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.red.opacity(0.25), lineWidth: 7))
+                                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.red.opacity(0.75), lineWidth: 1.5))
+                                .padding(.horizontal, 16)
                         }
 
                         if session.seriesId != nil {
@@ -183,8 +223,12 @@ struct SessionDetailView: View {
                             } label: {
                                 Label("Cancel All Remaining Sessions", systemImage: "xmark.circle.fill")
                                     .frame(maxWidth: .infinity)
-                                    .padding()
-                                    .background(Color(.systemBackground))
+                                    .padding(16)
+                                    .background(Color(red: 0.05, green: 0.08, blue: 0.10))
+                                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.red.opacity(0.25), lineWidth: 7))
+                                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.red.opacity(0.75), lineWidth: 1.5))
+                                    .padding(.horizontal, 16)
                             }
                             .padding(.top, 1)
                         }
@@ -193,7 +237,27 @@ struct SessionDetailView: View {
                 }
             }
         }
-        .background(themeManager.backgroundColour())
+        .background {
+            GeometryReader { geo in
+                Image(themeManager.currentBackgroundImage)
+                    .resizable()
+                    .scaledToFill()
+                    .grayscale(1.0)
+                    .frame(width: geo.size.width, height: geo.size.height)
+                    .clipped()
+
+                LinearGradient(
+                    gradient: Gradient(colors: [
+                        Color.black.opacity(0.67),
+                        Color.black.opacity(0.37),
+                        Color.clear
+                    ]),
+                    startPoint: .top,
+                    endPoint: .center
+                )
+            }
+            .ignoresSafeArea()
+        }
         .navigationTitle(session.title)
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
