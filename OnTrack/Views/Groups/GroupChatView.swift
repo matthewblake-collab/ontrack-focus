@@ -316,7 +316,7 @@ struct GroupChatView: View {
                     .lineLimit(1...5)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
-                    .background(Color(.systemGray6))
+                    .background(Color(red: 0.05, green: 0.08, blue: 0.10))
                     .clipShape(RoundedRectangle(cornerRadius: 20))
 
                 Button {
@@ -339,7 +339,7 @@ struct GroupChatView: View {
             }
             .padding(.horizontal)
             .padding(.vertical, 10)
-            .background(.regularMaterial)
+            .background(Color(red: 0.04, green: 0.06, blue: 0.08))
         }
         .navigationTitle("Chat")
         .navigationBarTitleDisplayMode(.inline)
@@ -412,7 +412,7 @@ private struct MessageBubble: View {
                                 ))
                         } else {
                             RoundedRectangle(cornerRadius: 18)
-                                .fill(.regularMaterial)
+                                .fill(Color(red: 0.05, green: 0.08, blue: 0.10))
                         }
                     }
 
