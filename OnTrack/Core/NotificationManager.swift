@@ -168,7 +168,12 @@ final class NotificationManager: NSObject {
     }
 
     func saveTokenToProfile(userId: UUID) async {
-        guard let token = pendingDeviceToken else {
+        let token: String
+        if let t = pendingDeviceToken {
+            token = t
+        } else if let t = UserDefaults.standard.string(forKey: "pending_device_token") {
+            token = t
+        } else {
             print("[Notifications] No pending device token to save")
             return
         }
