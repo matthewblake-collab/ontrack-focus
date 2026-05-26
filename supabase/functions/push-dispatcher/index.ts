@@ -20,7 +20,8 @@ const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const APNS_KEY_ID = Deno.env.get('APNS_KEY_ID')!
 const APNS_TEAM_ID = Deno.env.get('APNS_TEAM_ID')!
 const APNS_PRIVATE_KEY = Deno.env.get('APNS_PRIVATE_KEY')!
-const APNS_HOST = 'https://api.push.apple.com'
+const APNS_HOST_PROD = 'https://api.push.apple.com'
+const APNS_HOST_SANDBOX = 'https://api.sandbox.push.apple.com'
 const BUNDLE_ID = 'com.blakeMatt.OnTrack'
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE)
@@ -69,9 +70,9 @@ async function getApnsJwt(): Promise<string> {
   return token
 }
 
-async function sendApns(token: string, title: string, body: string): Promise<void> {
-  const jwt = await getApnsJwt()
-  const res = await fetch(`${APNS_HOST}/3/device/${token}`, {
+// POST one alert to a specific APNs host. Returns the status + response body.
+async function postApns(host: string, token: string, payload: string, jwt: string): Promise<{ status: number; body: string }> {
+  const res = await fetch(`${host}/3/device/${token}`, {
     method: 'POST',
     headers: {
       'authorization': `bearer ${jwt}`,
@@ -80,18 +81,33 @@ async function sendApns(token: string, title: string, body: string): Promise<voi
       'apns-priority': '10',
       'content-type': 'application/json',
     },
-    body: JSON.stringify({ aps: { alert: { title, body }, sound: 'default' } }),
+    body: payload,
   })
-  const txt = await res.text().catch(() => '')
-  console.log(`[push] APNs status=${res.status} token=${token.slice(0,8)}... body=${txt}`)
-  if (res.status === 410 || res.status === 400) {
-    if (res.status === 410 || txt.includes('BadDeviceToken') || txt.includes('Unregistered')) {
-      await admin.from('profiles').update({ push_token: null }).eq('push_token', token)
-    } else {
-      console.error(`[push] APNs ${res.status}: ${txt}`)
-    }
-  } else if (!res.ok) {
-    console.error(`[push] APNs ${res.status}: ${txt}`)
+  return { status: res.status, body: await res.text().catch(() => '') }
+}
+
+async function sendApns(token: string, title: string, body: string): Promise<void> {
+  const jwt = await getApnsJwt()
+  const payload = JSON.stringify({ aps: { alert: { title, body }, sound: 'default' } })
+
+  // Try production first. Development builds (Xcode → device) register SANDBOX
+  // tokens, which return 400 BadDeviceToken against production — retry those on
+  // sandbox. The same .p8 JWT is valid for both hosts. TestFlight/App Store
+  // builds register production tokens and succeed on the first attempt.
+  let host = 'production'
+  let r = await postApns(APNS_HOST_PROD, token, payload, jwt)
+  if (r.status === 400 && r.body.includes('BadDeviceToken')) {
+    host = 'sandbox'
+    r = await postApns(APNS_HOST_SANDBOX, token, payload, jwt)
+  }
+  console.log(`[push] APNs ${host} status=${r.status} token=${token.slice(0, 8)}... body=${r.body}`)
+
+  // Null the token only if Apple says it is dead on the host that owns it:
+  // 410 Unregistered, or 400 BadDeviceToken that survived the sandbox retry.
+  if (r.status === 410 || r.body.includes('Unregistered') || (r.status === 400 && r.body.includes('BadDeviceToken'))) {
+    await admin.from('profiles').update({ push_token: null }).eq('push_token', token)
+  } else if (r.status < 200 || r.status >= 300) {
+    console.error(`[push] APNs ${host} ${r.status}: ${r.body}`)
   }
 }
 
