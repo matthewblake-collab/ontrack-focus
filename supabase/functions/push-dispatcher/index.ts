@@ -82,15 +82,16 @@ async function sendApns(token: string, title: string, body: string): Promise<voi
     },
     body: JSON.stringify({ aps: { alert: { title, body }, sound: 'default' } }),
   })
+  const txt = await res.text().catch(() => '')
+  console.log(`[push] APNs status=${res.status} token=${token.slice(0,8)}... body=${txt}`)
   if (res.status === 410 || res.status === 400) {
-    const txt = await res.text().catch(() => '')
     if (res.status === 410 || txt.includes('BadDeviceToken') || txt.includes('Unregistered')) {
       await admin.from('profiles').update({ push_token: null }).eq('push_token', token)
     } else {
       console.error(`[push] APNs ${res.status}: ${txt}`)
     }
   } else if (!res.ok) {
-    console.error(`[push] APNs ${res.status}: ${await res.text().catch(() => '')}`)
+    console.error(`[push] APNs ${res.status}: ${txt}`)
   }
 }
 
@@ -108,8 +109,12 @@ async function getSessionCreator(sessionId: string): Promise<string | null> {
 function isServiceRole(req: Request): boolean {
   const m = (req.headers.get('Authorization') ?? '').match(/^Bearer\s+(.+)$/i)
   if (!m) return false
+  const token = m[1].trim()
+  // New sb_secret_ opaque keys: compare directly against injected service role key
+  if (token === SERVICE_ROLE) return true
+  // Legacy JWT: decode and check role claim
   try {
-    const seg = m[1].split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+    const seg = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
     return JSON.parse(atob(seg)).role === 'service_role'
   } catch { return false }
 }

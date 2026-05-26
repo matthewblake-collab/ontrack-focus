@@ -16,6 +16,9 @@ final class NotificationManager: NSObject {
     private override init() {
         super.init()
         UNUserNotificationCenter.current().delegate = self
+        if pendingDeviceToken == nil {
+            pendingDeviceToken = UserDefaults.standard.string(forKey: "pending_device_token")
+        }
         print("[Notifications] ✅ NotificationManager init — delegate set")
     }
 
@@ -154,6 +157,7 @@ final class NotificationManager: NSObject {
         let token = tokenData.map { String(format: "%02x", $0) }.joined()
         print("[Notifications] Device token received: \(token)")
         pendingDeviceToken = token
+        UserDefaults.standard.set(token, forKey: "pending_device_token")
         // If a user is already authenticated, persist immediately. The login-time
         // saveTokenToProfile (OnTrackApp .onChange) runs once and early-returns when
         // the APNs token hasn't arrived yet; without this, a token delivered AFTER
@@ -173,7 +177,10 @@ final class NotificationManager: NSObject {
                 .from("profiles")
                 .update(["push_token": token])
                 .eq("id", value: userId.uuidString)
+                .select("id")
+                .single()
                 .execute()
+            UserDefaults.standard.removeObject(forKey: "pending_device_token")
             print("[Notifications] Device token saved to profile \(userId.uuidString)")
         } catch {
             print("[Notifications] Failed to save device token: \(error)")
