@@ -239,108 +239,90 @@ struct DailyActionsView: View {
     var priorityCard: some View {
         Group {
             if !allSortedItems.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
+                let allDone = firstIncompleteItem == nil
+                let accent: Color = allDone ? .green : themeManager.currentTheme.primary
+
+                VStack(alignment: .leading, spacing: 6) {
                     if let incomplete = firstIncompleteItem {
                         HStack(spacing: 8) {
-                            Text("🔥 TODAY")
-                                .font(.headline)
-                                .fontWeight(.heavy)
-                                .foregroundStyle(.white)
-                            Text("\(completedItemCount)/\(allSortedItems.count) actions complete")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                                .foregroundStyle(.white.opacity(0.8))
+                            Text("TODAY")
+                                .font(.system(size: 9, weight: .heavy))
+                                .tracking(1.6)
+                                .foregroundStyle(accent.opacity(0.8))
+                            Text("·").foregroundStyle(.white.opacity(0.3))
+                            Text("\(completedItemCount)/\(allSortedItems.count) complete")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(.white.opacity(0.6))
                             Spacer()
+                            HStack(spacing: 3) {
+                                ForEach(0..<min(allSortedItems.count, 8), id: \.self) { i in
+                                    RoundedRectangle(cornerRadius: 2)
+                                        .fill(i < completedItemCount ? Color.green : Color.white.opacity(0.15))
+                                        .frame(width: 14, height: 4)
+                                }
+                                if allSortedItems.count > 8 {
+                                    Text("+\(allSortedItems.count - 8)")
+                                        .font(.system(size: 8, weight: .bold))
+                                        .foregroundStyle(.white.opacity(0.3))
+                                }
+                            }
                         }
-                        Text("Up next: \(firstIncompleteItemName)")
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.6))
-                        Button {
-                            scrollToItemId = incomplete.id
-                        } label: {
-                            Text("Complete Now")
-                                .font(.subheadline)
-                                .fontWeight(.bold)
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 10)
-                                .background(
-                                    LinearGradient(
-                                        colors: [
-                                            Color(red: 0.08, green: 0.35, blue: 0.45),
-                                            Color(red: 0.15, green: 0.55, blue: 0.38)
-                                        ],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                        Text(firstIncompleteItemName)
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                        Button { scrollToItemId = incomplete.id } label: {
+                            HStack {
+                                Spacer()
+                                Text("Complete Now")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.white)
+                                Spacer()
+                            }
+                            .padding(.vertical, 11)
+                            .background(
+                                ZStack {
+                                    Color(red: 0.04, green: 0.06, blue: 0.08)
+                                    RadialGradient(colors: [accent.opacity(0.4), Color.clear], center: .leading, startRadius: 0, endRadius: 120)
+                                    RoundedRectangle(cornerRadius: 10).strokeBorder(accent.opacity(0.3), lineWidth: 6)
+                                    RoundedRectangle(cornerRadius: 10).strokeBorder(accent, lineWidth: 1.5)
+                                }
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
                         }
                     } else {
-                        ZStack {
-                            // Animated particles
-                            TimelineView(.animation) { timeline in
-                                Canvas { context, size in
-                                    let t = timeline.date.timeIntervalSinceReferenceDate
-                                    for i in 0..<18 {
-                                        let seed = Double(i) * 137.5
-                                        let x = (sin(t * 0.4 + seed) * 0.5 + 0.5) * size.width
-                                        let y = (cos(t * 0.3 + seed * 0.7) * 0.5 + 0.5) * size.height
-                                        let radius = 2.0 + sin(t + seed) * 1.5
-                                        let opacity = 0.3 + sin(t * 0.6 + seed) * 0.2
-                                        context.fill(
-                                            Path(ellipseIn: CGRect(x: x - radius, y: y - radius, width: radius * 2, height: radius * 2)),
-                                            with: .color(Color.white.opacity(opacity))
-                                        )
-                                    }
-                                }
+                        HStack(spacing: 14) {
+                            ZStack {
+                                Circle().fill(Color.green.opacity(0.15)).frame(width: 48, height: 48)
+                                Circle().strokeBorder(Color.green.opacity(0.25), lineWidth: 5).frame(width: 40, height: 40)
+                                Circle().strokeBorder(Color.green, lineWidth: 1.5).frame(width: 40, height: 40)
+                                Image(systemName: "checkmark").font(.system(size: 16, weight: .bold)).foregroundStyle(.green)
                             }
-                            .allowsHitTesting(false)
-
-                            HStack {
-                                VStack(alignment: .leading, spacing: 6) {
-                                    Text("Day Complete")
-                                        .font(.headline)
-                                        .foregroundStyle(.white)
-                                    Text("All actions completed")
-                                        .font(.subheadline)
-                                        .foregroundStyle(.white.opacity(0.9))
-                                    Text("Consistency builds results")
-                                        .font(.caption)
-                                        .foregroundStyle(.white.opacity(0.75))
-                                }
-                                Spacer()
-                                ZStack {
-                                    Circle()
-                                        .stroke(Color.white.opacity(0.35), lineWidth: 4)
-                                        .frame(width: 56, height: 56)
-                                    Circle()
-                                        .trim(from: 0, to: 1.0)
-                                        .stroke(Color.white, lineWidth: 4)
-                                        .frame(width: 56, height: 56)
-                                        .rotationEffect(.degrees(-90))
-                                    Text("100%")
-                                        .font(.caption)
-                                        .fontWeight(.bold)
-                                        .foregroundStyle(.white)
-                                }
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("DAY COMPLETE")
+                                    .font(.system(size: 9, weight: .heavy))
+                                    .tracking(1.6)
+                                    .foregroundStyle(Color.green.opacity(0.8))
+                                Text("All \(allSortedItems.count) actions done")
+                                    .font(.system(size: 15, weight: .bold))
+                                    .foregroundStyle(.white)
+                                Text("Consistency builds results")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.white.opacity(0.45))
                             }
+                            Spacer()
                         }
-                        .frame(maxWidth: .infinity, minHeight: 0, maxHeight: 72)
                     }
                 }
-                .padding(.horizontal, 16).padding(.vertical, 12)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .background(
-                    Group {
-                        if firstIncompleteItem == nil && !allSortedItems.isEmpty {
-                            LinearGradient(
-                                colors: [Color(red: 0.05, green: 0.45, blue: 0.55), Color(red: 0.10, green: 0.75, blue: 0.50)],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        } else {
-                            Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92)
-                        }
+                    ZStack {
+                        Color(red: 0.05, green: 0.08, blue: 0.10)
+                        RadialGradient(colors: [accent.opacity(0.15), Color.clear], center: allDone ? .trailing : .leading, startRadius: 0, endRadius: 150)
+                        RoundedRectangle(cornerRadius: 16).strokeBorder(accent.opacity(0.25), lineWidth: 7)
+                        RoundedRectangle(cornerRadius: 16).strokeBorder(accent.opacity(allDone ? 0.85 : 0.6), lineWidth: 1.5)
                     }
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 16))
@@ -850,56 +832,94 @@ struct DailyActionsView: View {
     // MARK: - Date Browser
 
     var dateBrowser: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 10) {
             HStack {
                 Button {
                     selectedDate = calendar.date(byAdding: .day, value: -1, to: selectedDate) ?? selectedDate
                 } label: {
-                    Image(systemName: "chevron.left").foregroundColor(.white)
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.6))
+                        .frame(width: 32, height: 32)
+                        .background(Color.white.opacity(0.08))
+                        .clipShape(Circle())
                 }
                 Spacer()
                 VStack(spacing: 2) {
-                    Text(isToday(selectedDate) ? "Today" : isYesterday(selectedDate) ? "Yesterday" : dayLabel(selectedDate))
-                        .font(.headline).foregroundColor(.white)
+                    Text((isToday(selectedDate) ? "TODAY" : isYesterday(selectedDate) ? "YESTERDAY" : dayLabel(selectedDate).uppercased()))
+                        .font(.system(size: 10, weight: .heavy))
+                        .tracking(1.6)
+                        .foregroundColor(themeManager.currentTheme.primary.opacity(0.85))
                     Text(dateLabel(selectedDate))
-                        .font(.caption).foregroundColor(.white.opacity(0.7))
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.75))
                 }
                 Spacer()
                 Button {
                     selectedDate = calendar.date(byAdding: .day, value: 1, to: selectedDate) ?? selectedDate
                 } label: {
-                    Image(systemName: "chevron.right").foregroundColor(.white)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.6))
+                        .frame(width: 32, height: 32)
+                        .background(Color.white.opacity(0.08))
+                        .clipShape(Circle())
                 }
             }
-            .padding(.horizontal)
+            .padding(.horizontal, 4)
 
-            HStack(spacing: 6) {
+            HStack(spacing: 5) {
                 ForEach(-3..<4, id: \.self) { offset in
                     let date = calendar.date(byAdding: .day, value: offset, to: selectedDate) ?? Date()
                     let isSelected = calendar.isDate(date, inSameDayAs: selectedDate)
+                    let isToday = calendar.isDateInToday(date)
                     Button {
                         selectedDate = date
                     } label: {
-                        VStack(spacing: 4) {
+                        VStack(spacing: 3) {
                             Text(shortWeekday(date))
-                                .font(.caption2)
-                                .foregroundColor(isSelected ? .white : .white.opacity(0.6))
+                                .font(.system(size: 9, weight: .semibold))
+                                .tracking(0.5)
+                                .foregroundColor(isSelected ? .white : .white.opacity(0.45))
                             Text(dayNumber(date))
-                                .font(.caption)
-                                .fontWeight(isSelected ? .bold : .regular)
-                                .foregroundColor(isSelected ? .white : .white.opacity(0.8))
+                                .font(.system(size: 15, weight: isSelected ? .bold : .medium))
+                                .foregroundColor(isSelected ? .white : .white.opacity(0.7))
+                            Circle()
+                                .fill(isToday && !isSelected ? themeManager.currentTheme.primary.opacity(0.6) : Color.clear)
+                                .frame(width: 4, height: 4)
                         }
-                        .frame(width: 38, height: 44)
-                        .background(isSelected ? themeManager.currentTheme.primary : Color.white.opacity(0.15))
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                        .background(
+                            ZStack {
+                                if isSelected {
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(Color(red: 0.05, green: 0.08, blue: 0.10))
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .strokeBorder(themeManager.currentTheme.primary.opacity(0.3), lineWidth: 6)
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .strokeBorder(themeManager.currentTheme.primary, lineWidth: 1.5)
+                                } else {
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(Color.white.opacity(0.08))
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                                }
+                            }
+                        )
                     }
                 }
             }
-            .padding(.horizontal)
         }
-        .padding(.vertical, 12)
-        .background(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
+        .background(
+            ZStack {
+                Color(red: 0.12, green: 0.15, blue: 0.18)
+                RoundedRectangle(cornerRadius: 18).strokeBorder(Color.white.opacity(0.12), lineWidth: 8)
+                RoundedRectangle(cornerRadius: 18).strokeBorder(Color.white.opacity(0.35), lineWidth: 1.5)
+            }
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 18))
         .padding(.horizontal)
     }
 
@@ -1174,47 +1194,66 @@ private struct SeededRNG: RandomNumberGenerator {
 
 struct ChallengeRowView: View {
     let challenge: Challenge
+    private let gold = Color(red: 1.0, green: 0.84, blue: 0.0)
 
     var body: some View {
         HStack(spacing: 14) {
-            Image(systemName: "trophy.fill")
-                .font(.title2)
-                .foregroundColor(Color(red: 1.0, green: 0.84, blue: 0.0))
-                .frame(width: 28)
-
+            ZStack {
+                Circle()
+                    .fill(gold.opacity(0.12))
+                    .frame(width: 40, height: 40)
+                Circle()
+                    .strokeBorder(gold.opacity(0.25), lineWidth: 5)
+                    .frame(width: 34, height: 34)
+                Circle()
+                    .strokeBorder(gold.opacity(0.8), lineWidth: 1.5)
+                    .frame(width: 34, height: 34)
+                Image(systemName: "trophy.fill")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(gold)
+            }
             VStack(alignment: .leading, spacing: 3) {
+                Text("CHALLENGE")
+                    .font(.system(size: 8, weight: .heavy))
+                    .tracking(1.2)
+                    .foregroundColor(gold.opacity(0.65))
                 Text(challenge.title)
-                    .font(.body)
-                    .foregroundColor(Color(red: 1.0, green: 0.84, blue: 0.0))
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.white)
                 HStack(spacing: 4) {
                     Text("Goal: \(Int(challenge.goalTarget)) \(challenge.goalUnit ?? "") \(challenge.frequency ?? "")")
-                        .font(.caption2)
-                        .foregroundColor(Color(red: 1.0, green: 0.84, blue: 0.0).opacity(0.7))
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.45))
                     if let end = challenge.endDate {
                         Text("· Ends \(end.formatted(date: .abbreviated, time: .omitted))")
-                            .font(.caption2)
-                            .foregroundColor(.white.opacity(0.4))
+                            .font(.system(size: 10))
+                            .foregroundColor(.white.opacity(0.3))
                     }
                 }
             }
             Spacer()
             Image(systemName: "chevron.right")
-                .font(.caption)
-                .foregroundColor(.white.opacity(0.4))
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.white.opacity(0.3))
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(
-                    Color(red: 1.0, green: 0.84, blue: 0.0).opacity(0.6),
-                    lineWidth: 2
+            ZStack {
+                Color(red: 0.05, green: 0.08, blue: 0.10)
+                RadialGradient(
+                    colors: [gold.opacity(0.12), Color.clear],
+                    center: .leading,
+                    startRadius: 0,
+                    endRadius: 100
                 )
+                RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(gold.opacity(0.25), lineWidth: 7)
+                RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(gold.opacity(0.75), lineWidth: 1.5)
+            }
         )
+        .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 }
 
@@ -1244,60 +1283,6 @@ enum DailyItem: Identifiable {
     var habit: Habit? {
         if case .habit(let h) = self { return h }
         return nil
-    }
-}
-
-// MARK: - Supplement Row
-
-struct DailySupplementRowView: View {
-    let supplement: Supplement
-    let isTaken: Bool
-    let onToggle: () -> Void
-    let onTap: () -> Void
-    @EnvironmentObject var themeManager: ThemeManager
-
-    var body: some View {
-        HStack(spacing: 14) {
-            Button {
-                UIImpactFeedbackGenerator(style: isTaken ? .light : .medium).impactOccurred()
-                onToggle()
-            } label: {
-                Image(systemName: isTaken ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(isTaken ? .green : .white.opacity(0.6))
-                    .font(.title2)
-            }
-            Button { onTap() } label: {
-                HStack {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(supplement.name)
-                            .font(.body).foregroundColor(isTaken ? .green : .white)
-                        HStack(spacing: 4) {
-                            Text(SupplementTiming(rawValue: supplement.timing)?.label ?? "")
-                                .font(.caption2).foregroundColor(isTaken ? .green.opacity(0.7) : .white.opacity(0.6))
-                            Text(supplement.dose ?? "")
-                                .font(.caption).foregroundColor(.white.opacity(0.6))
-                        }
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption).foregroundColor(.white.opacity(0.5))
-                }
-            }
-            .buttonStyle(PlainButtonStyle())
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 6)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(
-                    isTaken ? Color.green.opacity(0.7) : themeManager.currentTheme.primary.opacity(0.5),
-                    lineWidth: 2
-                )
-        )
     }
 }
 
@@ -1333,6 +1318,81 @@ struct DailySessionLifecycleRow: View {
     }
 }
 
+// MARK: - Supplement Row
+
+struct DailySupplementRowView: View {
+    let supplement: Supplement
+    let isTaken: Bool
+    let onToggle: () -> Void
+    let onTap: () -> Void
+    @EnvironmentObject var themeManager: ThemeManager
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Button {
+                UIImpactFeedbackGenerator(style: isTaken ? .light : .medium).impactOccurred()
+                onToggle()
+            } label: {
+                Image(systemName: isTaken ? "checkmark.circle.fill" : "circle")
+                    .foregroundColor(isTaken ? .green : .white.opacity(0.4))
+                    .font(.system(size: 22, weight: .medium))
+            }
+            Button { onTap() } label: {
+                HStack {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(supplement.name)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(isTaken ? .green : .white)
+                        HStack(spacing: 6) {
+                            Text(SupplementTiming(rawValue: supplement.timing)?.label ?? "")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(isTaken ? Color.green.opacity(0.6) : themeManager.currentTheme.primary.opacity(0.7))
+                            if let dose = supplement.dose, !dose.isEmpty {
+                                Text("·")
+                                    .foregroundColor(.white.opacity(0.2))
+                                Text(dose)
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.white.opacity(0.4))
+                            }
+                        }
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.3))
+                }
+            }
+            .buttonStyle(PlainButtonStyle())
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(
+            ZStack {
+                Color(red: 0.05, green: 0.08, blue: 0.10)
+                if isTaken {
+                    RadialGradient(
+                        colors: [Color.green.opacity(0.12), Color.clear],
+                        center: .leading,
+                        startRadius: 0,
+                        endRadius: 100
+                    )
+                }
+                RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(
+                        isTaken ? Color.green.opacity(0.3) : themeManager.currentTheme.primary.opacity(0.25),
+                        lineWidth: 7
+                    )
+                RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(
+                        isTaken ? Color.green.opacity(0.8) : themeManager.currentTheme.primary.opacity(0.7),
+                        lineWidth: 1.5
+                    )
+            }
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+}
+
 // MARK: - Habit Row
 
 struct HabitRowView: View {
@@ -1344,72 +1404,107 @@ struct HabitRowView: View {
     var onNavigate: (() -> Void)? = nil
 
     var body: some View {
+        let isCompleted = viewModel.isCompleted(habit, on: date, userId: userId)
+
         HStack(spacing: 14) {
             if let target = habit.targetCount, target > 1 {
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     Button {
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         Task { await viewModel.decrementHabit(habit, on: date, userId: userId) }
                     } label: {
                         Image(systemName: "minus.circle.fill")
-                            .foregroundColor(.white.opacity(0.6)).font(.title3)
+                            .foregroundColor(.white.opacity(0.4))
+                            .font(.system(size: 20))
                     }
                     Text("\(viewModel.progressFor(habit, on: date, userId: userId))/\(target)")
-                        .font(.subheadline).monospacedDigit().foregroundColor(.white).frame(minWidth: 36)
+                        .font(.system(size: 13, weight: .bold))
+                        .monospacedDigit()
+                        .foregroundColor(.white)
+                        .frame(minWidth: 36)
                     Button {
                         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                         Task { await viewModel.incrementHabit(habit, on: date, userId: userId) }
                     } label: {
                         Image(systemName: "plus.circle.fill")
-                            .foregroundColor(themeManager.currentTheme.primary).font(.title3)
+                            .foregroundColor(themeManager.currentTheme.primary)
+                            .font(.system(size: 20))
                     }
                 }
             } else {
                 Button {
-                    let completing = !viewModel.isCompleted(habit, on: date, userId: userId)
+                    let completing = !isCompleted
                     UIImpactFeedbackGenerator(style: completing ? .medium : .light).impactOccurred()
                     Task { await viewModel.toggleHabit(habit, on: date, userId: userId) }
                 } label: {
-                    Image(systemName: viewModel.isCompleted(habit, on: date, userId: userId) ? "checkmark.circle.fill" : "circle")
-                        .foregroundColor(viewModel.isCompleted(habit, on: date, userId: userId) ? .green : .white.opacity(0.6))
-                        .font(.title2)
+                    Image(systemName: isCompleted ? "checkmark.circle.fill" : "circle")
+                        .foregroundColor(isCompleted ? .green : .white.opacity(0.4))
+                        .font(.system(size: 22, weight: .medium))
                 }
             }
-            Button {
-                onNavigate?()
-            } label: {
+
+            Button { onNavigate?() } label: {
                 HStack {
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(habit.name).font(.body).foregroundColor(viewModel.isCompleted(habit, on: date, userId: userId) ? .green : .white)
+                        Text(habit.name)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(isCompleted ? .green : .white)
                         if habit.groupId != nil {
-                            Text("Group habit").font(.caption2).foregroundColor(.white.opacity(0.5))
+                            Text("GROUP HABIT")
+                                .font(.system(size: 8, weight: .heavy))
+                                .tracking(1.0)
+                                .foregroundColor(themeManager.currentTheme.primary.opacity(0.55))
                         }
                     }
                     Spacer()
                     let streak = viewModel.currentStreak(for: habit, userId: userId)
                     if streak > 0 {
                         HStack(spacing: 3) {
-                            Image(systemName: "flame.fill").foregroundColor(.orange).font(.caption)
-                            Text("\(streak)").font(.caption).foregroundColor(.orange)
+                            Image(systemName: "flame.fill")
+                                .foregroundColor(.orange)
+                                .font(.system(size: 11))
+                            Text("\(streak)")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(.orange)
                         }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.orange.opacity(0.12))
+                        .clipShape(Capsule())
                     }
-                    Image(systemName: "chevron.right").font(.caption).foregroundColor(.white.opacity(0.5))
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.3))
+                        .padding(.leading, 6)
                 }
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
+            ZStack {
+                Color(red: 0.05, green: 0.08, blue: 0.10)
+                if isCompleted {
+                    RadialGradient(
+                        colors: [Color.green.opacity(0.12), Color.clear],
+                        center: .leading,
+                        startRadius: 0,
+                        endRadius: 100
+                    )
+                }
+                RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(
+                        isCompleted ? Color.green.opacity(0.3) : themeManager.currentTheme.primary.opacity(0.25),
+                        lineWidth: 7
+                    )
+                RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(
+                        isCompleted ? Color.green.opacity(0.8) : themeManager.currentTheme.primary.opacity(0.7),
+                        lineWidth: 1.5
+                    )
+            }
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(
-                    viewModel.isCompleted(habit, on: date, userId: userId) ? Color.green.opacity(0.7) : themeManager.currentTheme.primary.opacity(0.5),
-                    lineWidth: 2
-                )
-        )
+        .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 }
