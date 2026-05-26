@@ -1,0 +1,12 @@
+[
+  {
+    "ts": "2026-05-26T12:19:12Z",
+    "threadId": "19e200d046f1f328",
+    "subject": "Form submission from ai-guy-intake form: Anthony",
+    "sender": "formresponses@netlify.com",
+    "action": "needs_attention",
+    "labelsAdded": [],
+    "labelsRemoved": [],
+    "note": "Active ai-guy-intake business lead (Anthony). Starred + Action Required + Important. Matt already has an in-thread draft (msg 19e284d4c0683b91) pending Anthony's real email address — form did not capture it. No new draft created (reply target formresponses@netlify.com is a noreply relay). Left in inbox untouched."
+  }
+]
