@@ -32,7 +32,7 @@ final class AnalyticsManager {
         else { return }
 
         let config = PostHogConfig(apiKey: apiKey, host: host)
-        config.captureApplicationLifecycleEvents = true
+        config.captureApplicationLifecycleEvents = false
         config.sessionReplay = true
         config.sessionReplayConfig.maskAllTextInputs = true
         PostHogSDK.shared.setup(config)

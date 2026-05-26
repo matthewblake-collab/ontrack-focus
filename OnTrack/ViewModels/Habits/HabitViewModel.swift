@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import Supabase
+import Sentry
 
 struct StreakFreeze: Codable, Identifiable {
     let id: UUID
@@ -209,6 +210,7 @@ class HabitViewModel: ObservableObject {
             await MainActor.run { self.habits = fetched }
         } catch {
             await MainActor.run { errorMessage = error.localizedDescription }
+            SentrySDK.capture(error: error)
         }
     }
 
@@ -223,6 +225,7 @@ class HabitViewModel: ObservableObject {
             await MainActor.run { self.logs = fetched }
         } catch {
             await MainActor.run { errorMessage = error.localizedDescription }
+            SentrySDK.capture(error: error)
         }
     }
 
@@ -241,6 +244,7 @@ class HabitViewModel: ObservableObject {
             await MainActor.run { self.freezes = fetched }
         } catch {
             // Non-fatal — streak display continues without freeze data
+            SentrySDK.capture(error: error)
         }
     }
 
@@ -336,6 +340,7 @@ class HabitViewModel: ObservableObject {
                 }
             } catch {
                 await MainActor.run { errorMessage = error.localizedDescription }
+                SentrySDK.capture(error: error)
             }
         }
     }
@@ -547,6 +552,7 @@ class HabitViewModel: ObservableObject {
             }
         } catch {
             await MainActor.run { errorMessage = error.localizedDescription }
+            SentrySDK.capture(error: error)
         }
     }
 }

@@ -122,6 +122,9 @@ struct SupplementsView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .onAppear {
+            AnalyticsManager.shared.screen("Supplements")
+        }
         .task {
             guard let userId = appState.currentUser?.id else { return }
             await viewModel.fetchSupplements(userId: userId)

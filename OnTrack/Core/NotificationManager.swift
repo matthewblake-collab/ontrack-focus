@@ -585,11 +585,14 @@ final class NotificationManager: NSObject {
                 content.body = "Your wellness scores are lower than last week. Take a moment to check in with yourself today."
                 content.sound = .default
 
-                let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 5, repeats: false)
+                var alertComponents = DateComponents()
+                alertComponents.hour = 9
+                alertComponents.minute = 0
+                let trigger = UNCalendarNotificationTrigger(dateMatching: alertComponents, repeats: false)
                 let request = UNNotificationRequest(identifier: "low-wellness-alert", content: content, trigger: trigger)
                 UNUserNotificationCenter.current().add(request) { error in
                     if let error { print("[Notifications] Low wellness alert error: \(error)") }
-                    else { print("[Notifications] Low wellness alert scheduled ✅") }
+                    else { print("[Notifications] Low wellness alert scheduled for 9am ✅") }
                 }
             }
         } catch {
@@ -852,11 +855,14 @@ final class NotificationManager: NSObject {
                 content.body = "Your team's wellness scores have dropped this week. Check in with your players on the Coach Dashboard."
                 content.sound = .default
 
-                let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 5, repeats: false)
+                var moraleComponents = DateComponents()
+                moraleComponents.hour = 9
+                moraleComponents.minute = 0
+                let trigger = UNCalendarNotificationTrigger(dateMatching: moraleComponents, repeats: false)
                 let request = UNNotificationRequest(identifier: "team-morale-alert", content: content, trigger: trigger)
                 UNUserNotificationCenter.current().add(request) { error in
                     if let error { print("[Notifications] Team morale alert error: \(error)") }
-                    else { print("[Notifications] Team morale alert scheduled ✅") }
+                    else { print("[Notifications] Team morale alert scheduled for 9am ✅") }
                 }
             }
         } catch {
