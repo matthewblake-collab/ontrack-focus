@@ -52,6 +52,14 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         Task {
             await HealthKitManager.shared.requestAuthorization()
 
+            // Flush any pending APNs token now that auth is confirmed. Covers the
+            // cold-start race where the token arrives before the Supabase session
+            // is restored (so the inline handleDeviceToken save was skipped) and
+            // the .onChange path never fired for an already-set currentUser.
+            if let userId = supabase.auth.currentUser?.id {
+                await NotificationManager.shared.saveTokenToProfile(userId: userId)
+            }
+
             let formatter = DateFormatter()
             formatter.dateFormat = "yyyy-MM-dd"
             let today = formatter.string(from: Date())

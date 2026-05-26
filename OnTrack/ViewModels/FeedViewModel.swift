@@ -387,24 +387,6 @@ class FeedViewModel {
                 print("[FeedViewModel] like error: \(error)")
                 SentrySDK.capture(error: error)
             }
-            do {
-                struct PushProfile: Decodable {
-                    let pushToken: String?
-                    enum CodingKeys: String, CodingKey { case pushToken = "push_token" }
-                }
-                let profiles: [PushProfile] = try await supabase
-                    .from("profiles")
-                    .select("push_token")
-                    .eq("id", value: item.ownerID)
-                    .limit(1)
-                    .execute()
-                    .value
-                if let token = profiles.first?.pushToken {
-                    print("STUB: send like notification to token \(token) — \(currentUserDisplayName) liked your activity")
-                }
-            } catch {
-                print("[FeedViewModel] push token fetch error: \(error)")
-            }
         }
     }
 
@@ -428,25 +410,6 @@ class FeedViewModel {
                 .execute()
         } catch {
             print("[FeedViewModel] join session error: \(error)")
-            SentrySDK.capture(error: error)
-        }
-        do {
-            struct PushProfile: Decodable {
-                let pushToken: String?
-                enum CodingKeys: String, CodingKey { case pushToken = "push_token" }
-            }
-            let profiles: [PushProfile] = try await supabase
-                .from("profiles")
-                .select("push_token")
-                .eq("id", value: item.ownerID)
-                .limit(1)
-                .execute()
-                .value
-            if let token = profiles.first?.pushToken {
-                print("STUB: send join notification to token \(token) — \(currentUserDisplayName) is joining your session")
-            }
-        } catch {
-            print("[FeedViewModel] push token fetch error: \(error)")
             SentrySDK.capture(error: error)
         }
     }
