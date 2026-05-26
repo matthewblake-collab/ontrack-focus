@@ -181,7 +181,7 @@ final class NotificationManager: NSObject {
             try await supabase
                 .from("profiles")
                 .update(["push_token": token])
-                .eq("id", value: userId.uuidString)
+                .eq("id", value: userId.uuidString.lowercased())
                 .select("id")
                 .single()
                 .execute()
