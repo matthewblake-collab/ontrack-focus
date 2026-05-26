@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import Supabase
+import Sentry
 
 // MARK: - Models
 
@@ -90,6 +91,7 @@ final class ChallengeViewModel {
             challenges = result
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
         }
     }
 
@@ -105,6 +107,7 @@ final class ChallengeViewModel {
             pendingInvites = result
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
         }
     }
 
@@ -133,6 +136,7 @@ final class ChallengeViewModel {
             challenges.append(contentsOf: newOnes)
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
         }
     }
 
@@ -175,6 +179,7 @@ final class ChallengeViewModel {
             resetForm()
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
         }
     }
 
@@ -208,6 +213,7 @@ final class ChallengeViewModel {
             incomingChallenge = challenges.first
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
         }
     }
 
@@ -224,6 +230,7 @@ final class ChallengeViewModel {
             await fetchPendingInvites(userId: userId)
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
         }
     }
 
@@ -286,6 +293,7 @@ final class ChallengeViewModel {
             }
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
         }
     }
 
@@ -304,6 +312,7 @@ final class ChallengeViewModel {
             challenges.removeAll { $0.id == challenge.id }
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
         }
     }
 

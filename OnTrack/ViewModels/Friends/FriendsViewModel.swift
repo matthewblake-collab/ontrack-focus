@@ -1,5 +1,6 @@
 import Foundation
 import Supabase
+import Sentry
 
 @Observable
 class FriendsViewModel {
@@ -35,6 +36,7 @@ class FriendsViewModel {
             pendingSent = all.filter { $0.status == "pending" && $0.requesterId.lowercased() == lowerId }
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
         }
     }
 
@@ -63,6 +65,7 @@ class FriendsViewModel {
             }
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
         }
     }
 
@@ -84,6 +87,7 @@ class FriendsViewModel {
             }
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
             return []
         }
     }
@@ -103,6 +107,7 @@ class FriendsViewModel {
             return Profile(id: r.id, displayName: r.display_name, avatarURL: r.avatar_url, goals: [], createdAt: Date())
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
             return nil
         }
     }
@@ -120,6 +125,7 @@ class FriendsViewModel {
             errorMessage = error.localizedDescription
             print("❌ sendFriendRequest failed: \(error)")
             print("❌ fromUserId: \(fromUserId), toUserId: \(toUserId)")
+            SentrySDK.capture(error: error)
         }
     }
 
@@ -141,6 +147,7 @@ class FriendsViewModel {
                 .execute()
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
         }
     }
 
@@ -153,6 +160,7 @@ class FriendsViewModel {
                 .execute()
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
         }
     }
 
@@ -165,6 +173,7 @@ class FriendsViewModel {
                 .execute()
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
         }
     }
 
@@ -179,6 +188,7 @@ class FriendsViewModel {
                 .execute()
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
         }
     }
 
@@ -191,6 +201,7 @@ class FriendsViewModel {
                 .execute()
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
         }
     }
 
@@ -228,6 +239,7 @@ class FriendsViewModel {
             return milestones.sorted { $0.achievedAt > $1.achievedAt }
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
             return []
         }
     }
@@ -252,6 +264,7 @@ class FriendsViewModel {
             activeTodayIDs = Set(rows.map { $0.userId })
         } catch {
             activeTodayIDs = []
+            SentrySDK.capture(error: error)
         }
     }
 
@@ -290,6 +303,7 @@ class FriendsViewModel {
             mutualGroupCounts = counts
         } catch {
             mutualGroupCounts = [:]
+            SentrySDK.capture(error: error)
         }
     }
 

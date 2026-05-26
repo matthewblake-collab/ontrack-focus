@@ -1,6 +1,7 @@
 import Foundation
 import Supabase
 import WidgetKit
+import Sentry
 
 @Observable
 final class ReadinessViewModel {
@@ -89,6 +90,7 @@ final class ReadinessViewModel {
             guard let row = rows.first else { return nil }
             return Double(row.sleep + row.energy + row.wellbeing) / 3.0
         } catch {
+            SentrySDK.capture(error: error)
             return nil
         }
     }
@@ -105,6 +107,7 @@ final class ReadinessViewModel {
                 .value
             return rows.count
         } catch {
+            SentrySDK.capture(error: error)
             return 0
         }
     }
@@ -121,7 +124,9 @@ final class ReadinessViewModel {
                 .execute()
                 .value
             if !attRows.isEmpty { return true }
-        } catch {}
+        } catch {
+            SentrySDK.capture(error: error)
+        }
         do {
             let qlRows: [AttendanceCountRow] = try await supabase
                 .from("quick_logs")
@@ -133,6 +138,7 @@ final class ReadinessViewModel {
                 .value
             return !qlRows.isEmpty
         } catch {
+            SentrySDK.capture(error: error)
             return false
         }
     }

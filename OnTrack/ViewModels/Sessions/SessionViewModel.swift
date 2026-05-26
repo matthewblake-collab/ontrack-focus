@@ -1,5 +1,6 @@
 import Foundation
 import Supabase
+import Sentry
 
 enum RecurrenceRule: String, CaseIterable, Identifiable {
     case none = "none"
@@ -68,6 +69,7 @@ final class SessionViewModel {
             self.sessions = result
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
         }
         isLoading = false
     }
@@ -86,6 +88,7 @@ final class SessionViewModel {
             self.sessions = result
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
         }
         isLoading = false
     }
@@ -173,6 +176,7 @@ final class SessionViewModel {
             resetForm()
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
         }
         isLoading = false
         return firstSession
@@ -257,6 +261,7 @@ final class SessionViewModel {
             resetForm()
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
         }
         isLoading = false
         return firstSession
@@ -275,6 +280,7 @@ final class SessionViewModel {
             await fetchSessions(groupId: groupId)
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
         }
         isLoading = false
     }
@@ -303,6 +309,7 @@ final class SessionViewModel {
             await fetchSessions(groupId: groupId)
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
         }
         isLoading = false
     }
@@ -326,6 +333,7 @@ final class SessionViewModel {
                 .execute()
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
         }
         isLoading = false
     }

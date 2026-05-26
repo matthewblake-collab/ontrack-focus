@@ -1,5 +1,6 @@
 import Foundation
 import Supabase
+import Sentry
 
 enum FeedItemType {
     case session, streak, habitLog, personalBest
@@ -88,6 +89,7 @@ class FeedViewModel {
             }
         } catch {
             print("[FeedViewModel] sessions fetch error: \(error)")
+            SentrySDK.capture(error: error)
         }
 
         // --- Streaks ---
@@ -125,6 +127,7 @@ class FeedViewModel {
             }
         } catch {
             print("[FeedViewModel] streaks fetch error: \(error)")
+            SentrySDK.capture(error: error)
         }
 
         // --- Display names ---
@@ -151,6 +154,7 @@ class FeedViewModel {
                 }
             } catch {
                 print("[FeedViewModel] profiles fetch error: \(error)")
+                SentrySDK.capture(error: error)
             }
         }
 
@@ -171,6 +175,7 @@ class FeedViewModel {
             likedItemIDs = Set(likes.map { $0.targetId })
         } catch {
             print("[FeedViewModel] feed_likes fetch error: \(error)")
+            SentrySDK.capture(error: error)
         }
 
         // --- Habit log feed items (last 3 days) ---
@@ -226,6 +231,7 @@ class FeedViewModel {
             }
         } catch {
             print("[FeedViewModel] habit_logs fetch error: \(error)")
+            SentrySDK.capture(error: error)
         }
 
         // --- PB feed items (last 7 days) ---
@@ -274,6 +280,7 @@ class FeedViewModel {
             }
         } catch {
             print("[FeedViewModel] personal_bests feed fetch error: \(error)")
+            SentrySDK.capture(error: error)
         }
 
         // Extend name map with new owners
@@ -293,7 +300,9 @@ class FeedViewModel {
                     .execute()
                     .value
                 for p in extras { nameMap[p.id] = p.displayName ?? "Someone" }
-            } catch {}
+            } catch {
+                SentrySDK.capture(error: error)
+            }
         }
 
         // --- Enrich and sort ---
@@ -344,6 +353,7 @@ class FeedViewModel {
                 }
             } catch {
                 print("[FeedViewModel] unlike error: \(error)")
+                SentrySDK.capture(error: error)
             }
         } else {
             struct NewLike: Encodable {
@@ -375,6 +385,7 @@ class FeedViewModel {
                 }
             } catch {
                 print("[FeedViewModel] like error: \(error)")
+                SentrySDK.capture(error: error)
             }
             do {
                 struct PushProfile: Decodable {
@@ -417,6 +428,7 @@ class FeedViewModel {
                 .execute()
         } catch {
             print("[FeedViewModel] join session error: \(error)")
+            SentrySDK.capture(error: error)
         }
         do {
             struct PushProfile: Decodable {
@@ -435,6 +447,7 @@ class FeedViewModel {
             }
         } catch {
             print("[FeedViewModel] push token fetch error: \(error)")
+            SentrySDK.capture(error: error)
         }
     }
 }

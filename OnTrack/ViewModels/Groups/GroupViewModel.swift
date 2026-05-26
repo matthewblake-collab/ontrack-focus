@@ -1,5 +1,6 @@
 import Foundation
 import Supabase
+import Sentry
 
 @Observable
 final class GroupViewModel {
@@ -30,6 +31,7 @@ final class GroupViewModel {
             await fetchNextSessions()
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
         }
         isLoading = false
     }
@@ -74,6 +76,7 @@ final class GroupViewModel {
             self.nextSessions = result
         } catch {
             print("[GroupViewModel] fetchNextSessions error: \(error.localizedDescription)")
+            SentrySDK.capture(error: error)
         }
     }
 
@@ -108,6 +111,7 @@ final class GroupViewModel {
             self.nextSessionMyRSVPs = result
         } catch {
             print("[GroupViewModel] fetchNextSessionRSVPs error: \(error.localizedDescription)")
+            SentrySDK.capture(error: error)
         }
     }
 
@@ -142,6 +146,7 @@ final class GroupViewModel {
             newGroupDescription = ""
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
         }
         isLoading = false
     }
@@ -175,6 +180,7 @@ final class GroupViewModel {
             inviteCodeInput = ""
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
         }
         isLoading = false
     }
@@ -221,6 +227,7 @@ final class GroupViewModel {
             await fetchGroups()
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
         }
         isLoading = false
     }
@@ -243,6 +250,7 @@ final class GroupViewModel {
                 .execute()
         } catch {
             print("[Streak] Error incrementing streak: \(error.localizedDescription)")
+            SentrySDK.capture(error: error)
         }
     }
 
@@ -260,6 +268,7 @@ final class GroupViewModel {
                 .execute()
         } catch {
             print("[Streak] Error resetting streak: \(error.localizedDescription)")
+            SentrySDK.capture(error: error)
         }
     }
 
@@ -285,6 +294,8 @@ final class GroupViewModel {
             self.sessionFreezes = fetched
         } catch {
             // Non-fatal — streak display continues without freeze data
+            print("[GroupViewModel] fetchSessionFreezes error: \(error)")
+            SentrySDK.capture(error: error)
         }
     }
 

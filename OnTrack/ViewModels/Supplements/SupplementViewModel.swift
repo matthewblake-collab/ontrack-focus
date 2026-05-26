@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import Supabase
+import Sentry
 
 final class SupplementViewModel: ObservableObject {
     @Published var supplements: [Supplement] = []
@@ -92,6 +93,7 @@ final class SupplementViewModel: ObservableObject {
             await fetchTodaysLogs(userId: userId)
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
         }
     }
 
@@ -106,6 +108,7 @@ final class SupplementViewModel: ObservableObject {
             self.supplementLogs = result
         } catch {
             print("Error fetching supplement logs: \(error)")
+            SentrySDK.capture(error: error)
         }
     }
 
@@ -135,6 +138,7 @@ final class SupplementViewModel: ObservableObject {
             NotificationCenter.default.post(name: .readinessShouldRefresh, object: nil, userInfo: ["userId": userId])
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
         }
     }
 
@@ -152,6 +156,7 @@ final class SupplementViewModel: ObservableObject {
             supplementLogs.removeAll { $0.id == existing.id }
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
         }
     }
 
@@ -170,6 +175,7 @@ final class SupplementViewModel: ObservableObject {
             self.todaysLogs = result
         } catch {
             print("Error fetching logs: \(error)")
+            SentrySDK.capture(error: error)
         }
     }
 
@@ -198,6 +204,7 @@ final class SupplementViewModel: ObservableObject {
             }
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
         }
     }
 
@@ -287,6 +294,7 @@ final class SupplementViewModel: ObservableObject {
             return inserted
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
         }
         isLoading = false
         return nil
@@ -307,6 +315,7 @@ final class SupplementViewModel: ObservableObject {
             }
         } catch {
             print("Error deducting stock: \(error)")
+            SentrySDK.capture(error: error)
         }
     }
 
@@ -337,6 +346,7 @@ final class SupplementViewModel: ObservableObject {
             await fetchSupplements(userId: userId)
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
         }
         isLoading = false
     }
@@ -352,6 +362,7 @@ final class SupplementViewModel: ObservableObject {
                 .execute()
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
             await fetchSupplements(userId: userId)
         }
     }
@@ -379,6 +390,7 @@ final class SupplementViewModel: ObservableObject {
             await fetchSupplements(userId: userId)
         } catch {
             errorMessage = error.localizedDescription
+            SentrySDK.capture(error: error)
         }
     }
 
