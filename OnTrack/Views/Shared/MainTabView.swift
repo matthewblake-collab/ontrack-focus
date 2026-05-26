@@ -229,7 +229,7 @@ struct MainTabView: View {
                 .value
             if records.isEmpty {
                 checkInVM.reset()
-                checkInVM.prefillFromHealthKit()
+                await checkInVM.prefillFromHealthKit()
                 showCheckIn = true
             }
         } catch {

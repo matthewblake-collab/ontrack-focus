@@ -20,10 +20,14 @@ final class DailyCheckInViewModel {
         sleep > 0 && energy > 0 && wellbeing > 0 && !isSubmitting
     }
 
-    func prefillFromHealthKit() {
+    func prefillFromHealthKit() async {
         guard !healthKitPrefilled else { return }
         let hk = HealthKitManager.shared
-        guard hk.isAuthorized else { return }
+        if hk.isAuthorized {
+            await hk.fetchAll()
+        } else {
+            await hk.requestAuthorization()
+        }
 
         var didPrefill = false
 
@@ -32,22 +36,55 @@ final class DailyCheckInViewModel {
             didPrefill = true
         }
 
-        if energy == 0, let steps = hk.stepCount {
-            // Maps daily step count to a 1–10 energy score for pre-fill.
-            let score: Int
-            switch steps {
-            case ..<1_000:  score = 1
-            case ..<2_500:  score = 2
-            case ..<4_000:  score = 3
-            case ..<5_500:  score = 4
-            case ..<7_000:  score = 5
-            case ..<8_500:  score = 6
-            case ..<10_000: score = 7
-            case ..<12_000: score = 8
-            case ..<15_000: score = 9
-            default:        score = 10
+        if energy == 0 {
+            let energyScore: Int?
+            if let cals = hk.activeEnergy {
+                switch cals {
+                case ..<100:  energyScore = 1
+                case ..<200:  energyScore = 2
+                case ..<300:  energyScore = 3
+                case ..<400:  energyScore = 4
+                case ..<500:  energyScore = 5
+                case ..<650:  energyScore = 6
+                case ..<800:  energyScore = 7
+                case ..<1000: energyScore = 8
+                case ..<1300: energyScore = 9
+                default:      energyScore = 10
+                }
+            } else if let mins = hk.exerciseMinutes {
+                switch mins {
+                case ..<10:  energyScore = 2
+                case ..<20:  energyScore = 4
+                case ..<30:  energyScore = 5
+                case ..<45:  energyScore = 6
+                case ..<60:  energyScore = 7
+                case ..<90:  energyScore = 8
+                default:     energyScore = 9
+                }
+            } else if let steps = hk.stepCount {
+                switch steps {
+                case ..<1_000:  energyScore = 1
+                case ..<2_500:  energyScore = 2
+                case ..<4_000:  energyScore = 3
+                case ..<5_500:  energyScore = 4
+                case ..<7_000:  energyScore = 5
+                case ..<8_500:  energyScore = 6
+                case ..<10_000: energyScore = 7
+                case ..<12_000: energyScore = 8
+                case ..<15_000: energyScore = 9
+                default:        energyScore = 10
+                }
+            } else {
+                energyScore = nil
             }
-            energy = score
+            if let score = energyScore {
+                energy = score
+                didPrefill = true
+            }
+        }
+
+        if wellbeing == 0, let snapshot = ReadinessSnapshot.load(), snapshot.score > 0 {
+            wellbeing = min(10, max(1, Int((Double(snapshot.score) / 10.0).rounded())))
             didPrefill = true
         }
 
@@ -267,7 +304,7 @@ struct DailyCheckInView: View {
         }
         .onAppear {
             AnalyticsManager.shared.screen("DailyCheckIn")
-            vm.prefillFromHealthKit()
+            Task { await vm.prefillFromHealthKit() }
         }
     }
 
