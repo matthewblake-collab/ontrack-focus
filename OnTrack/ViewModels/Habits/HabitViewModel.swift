@@ -35,6 +35,7 @@ class HabitViewModel: ObservableObject {
     func dateString(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
+        formatter.timeZone = TimeZone(identifier: "UTC")
         return formatter.string(from: date)
     }
 
@@ -196,6 +197,12 @@ class HabitViewModel: ObservableObject {
 
     // MARK: - Fetch
 
+    private func isCancellation(_ error: Error) -> Bool {
+        if error is CancellationError { return true }
+        let nsError = error as NSError
+        return nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled
+    }
+
     func fetchHabits() async {
         // Bug 4: dropped isLoading=true/false toggles around the data assignment.
         // Previously caused 3 @Published updates per fetch (load on → data → load off),
@@ -209,6 +216,7 @@ class HabitViewModel: ObservableObject {
                 .value
             await MainActor.run { self.habits = fetched }
         } catch {
+            guard !isCancellation(error) else { return }
             await MainActor.run { errorMessage = error.localizedDescription }
             SentrySDK.capture(error: error)
         }
@@ -224,6 +232,7 @@ class HabitViewModel: ObservableObject {
                 .value
             await MainActor.run { self.logs = fetched }
         } catch {
+            guard !isCancellation(error) else { return }
             await MainActor.run { errorMessage = error.localizedDescription }
             SentrySDK.capture(error: error)
         }
@@ -243,6 +252,7 @@ class HabitViewModel: ObservableObject {
                 .value
             await MainActor.run { self.freezes = fetched }
         } catch {
+            guard !isCancellation(error) else { return }
             // Non-fatal — streak display continues without freeze data
             SentrySDK.capture(error: error)
         }
@@ -279,7 +289,11 @@ class HabitViewModel: ObservableObject {
                 .execute()
             await fetchFreezes(userId: userId)
         } catch {
-            // Silently ignore duplicate inserts (unique constraint)
+            if let pgError = error as? PostgrestError, pgError.code == "23505" {
+                // expected duplicate — ignore
+            } else {
+                await MainActor.run { errorMessage = error.localizedDescription }
+            }
         }
     }
 

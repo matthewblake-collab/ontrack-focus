@@ -41,51 +41,71 @@ struct ReadinessHomeWidgetView: View {
     let entry: ReadinessEntry
     private let deepLink = URL(string: "ontrack://readiness")!
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text("READINESS")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.55))
-                Spacer()
-                if entry.snapshot?.isStale == true {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 9))
-                        .foregroundStyle(.white.opacity(0.4))
-                }
-            }
+    private var score: Int { entry.snapshot?.score ?? 0 }
 
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(entry.snapshot.map { "\($0.score)" } ?? "—")
-                    .font(.system(size: 44, weight: .bold))
-                    .foregroundStyle(entry.snapshot?.ringColor ?? .white)
-                Text(entry.snapshot.map { _ in "/100" } ?? "")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.45))
+    private var tierColor: Color {
+        switch score {
+        case 80...: return Color(red: 0.2, green: 0.85, blue: 0.5)
+        case 60..<80: return Color(red: 1.0, green: 0.6, blue: 0.2)
+        default: return Color(red: 0.95, green: 0.3, blue: 0.35)
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+
+            // Ring + score
+            ZStack {
+                Circle()
+                    .fill(tierColor.opacity(0.1))
+                    .frame(width: 80, height: 80)
+                Circle()
+                    .stroke(tierColor.opacity(0.25), lineWidth: 7)
+                    .frame(width: 68, height: 68)
+                Circle()
+                    .trim(from: 0, to: entry.snapshot != nil ? CGFloat(score) / 100.0 : 0)
+                    .stroke(tierColor, style: StrokeStyle(lineWidth: 7, lineCap: .round))
+                    .frame(width: 68, height: 68)
+                    .rotationEffect(.degrees(-90))
+                    .shadow(color: tierColor.opacity(0.6), radius: 6)
+                Text(entry.snapshot != nil ? "\(score)" : "—")
+                    .font(.system(size: 26, weight: .bold))
+                    .foregroundStyle(.white)
             }
 
             Spacer(minLength: 0)
 
+            Text("READINESS")
+                .font(.system(size: 8, weight: .heavy))
+                .tracking(1.4)
+                .foregroundStyle(tierColor.opacity(0.7))
+
             if entry.snapshot?.isStale == true {
-                Text("Open OnTrack to refresh")
-                    .font(.system(size: 10))
+                Text("Open app to refresh")
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.white.opacity(0.5))
             } else if let next = entry.snapshot?.nextIncompleteItemName, !next.isEmpty {
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("Up next")
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.45))
+                    Text("UP NEXT")
+                        .font(.system(size: 7, weight: .heavy))
+                        .tracking(1.0)
+                        .foregroundStyle(tierColor.opacity(0.55))
                     Text(next)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(.white)
                         .lineLimit(1)
                 }
+            } else if entry.snapshot != nil {
+                Text(score >= 80 ? "Looking good" : score >= 60 ? "Recovery moderate" : "Recovery low")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.6))
             } else {
-                Text(entry.snapshot.map { "Recovery \($0.tier)" } ?? "Open OnTrack")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.white.opacity(0.55))
+                Text("Open OnTrack")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.5))
             }
         }
+        .padding(14)
         .widgetURL(deepLink)
     }
 }
@@ -97,7 +117,27 @@ struct ReadinessHomeWidget: Widget {
         StaticConfiguration(kind: kind, provider: ReadinessProvider()) { entry in
             ReadinessHomeWidgetView(entry: entry)
                 .containerBackground(for: .widget) {
-                    Color(red: 0.08, green: 0.12, blue: 0.15)
+                    let score = entry.snapshot?.score ?? 0
+                    let tierColor: Color = {
+                        switch score {
+                        case 80...: return Color(red: 0.2, green: 0.85, blue: 0.5)
+                        case 60..<80: return Color(red: 1.0, green: 0.6, blue: 0.2)
+                        default: return Color(red: 0.95, green: 0.3, blue: 0.35)
+                        }
+                    }()
+                    ZStack {
+                        Color(red: 0.05, green: 0.08, blue: 0.10)
+                        RadialGradient(
+                            colors: [tierColor.opacity(0.22), Color.clear],
+                            center: .topLeading,
+                            startRadius: 0,
+                            endRadius: 130
+                        )
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .strokeBorder(tierColor.opacity(0.25), lineWidth: 8)
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .strokeBorder(tierColor.opacity(0.85), lineWidth: 1.5)
+                    }
                 }
         }
         .configurationDisplayName("Readiness")

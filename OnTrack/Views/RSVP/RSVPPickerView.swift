@@ -323,15 +323,19 @@ struct SessionLifecycleCard: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(Self.cardBg)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .strokeBorder(
-                    showToggle ? (attended == true ? Color.green.opacity(0.7) : Color(red: 0.08, green: 0.35, blue: 0.45).opacity(0.5)) : s.borderColor,
-                    lineWidth: 2
-                )
+        .background(
+            ZStack {
+                Color(red: 0.05, green: 0.08, blue: 0.10)
+                let stateColor: Color = {
+                    if showToggle { return attended == true ? .green : Color(red: 0.08, green: 0.55, blue: 0.65) }
+                    return s.borderColor
+                }()
+                RadialGradient(colors: [stateColor.opacity(0.12), Color.clear], center: .leading, startRadius: 0, endRadius: 100)
+                RoundedRectangle(cornerRadius: 16).strokeBorder(stateColor.opacity(0.25), lineWidth: 7)
+                RoundedRectangle(cornerRadius: 16).strokeBorder(stateColor.opacity(0.8), lineWidth: 1.5)
+            }
         )
+        .clipShape(RoundedRectangle(cornerRadius: 16))
         .contentShape(Rectangle())
     }
 }

@@ -95,8 +95,15 @@ struct AppleHealthCard: View {
             }
         }
         .padding()
-        .background(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
-        .cornerRadius(16)
+        .background(
+            ZStack {
+                Color(red: 0.05, green: 0.08, blue: 0.10)
+                RadialGradient(colors: [Color.red.opacity(0.08), Color.clear], center: .topLeading, startRadius: 0, endRadius: 120)
+                RoundedRectangle(cornerRadius: 18).strokeBorder(Color.red.opacity(0.15), lineWidth: 7)
+                RoundedRectangle(cornerRadius: 18).strokeBorder(Color.red.opacity(0.45), lineWidth: 1.5)
+            }
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 18))
         .padding(.horizontal)
         .sheet(isPresented: $showWorkouts) {
             NavigationStack {
@@ -186,7 +193,13 @@ private struct HealthStatTile: View {
             Spacer()
         }
         .padding(10)
-        .background(Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92))
-        .cornerRadius(10)
+        .background(
+            ZStack {
+                Color(red: 0.05, green: 0.08, blue: 0.10)
+                RoundedRectangle(cornerRadius: 10).strokeBorder(color.opacity(0.2), lineWidth: 5)
+                RoundedRectangle(cornerRadius: 10).strokeBorder(color.opacity(0.5), lineWidth: 1)
+            }
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 }
