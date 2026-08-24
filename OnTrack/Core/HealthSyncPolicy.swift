@@ -146,6 +146,88 @@ nonisolated enum HealthSyncPolicy {
     }
 }
 
+// MARK: - Observed types and delivery frequency
+
+/// How eagerly iOS is asked to wake the app for a given type.
+///
+/// This mirrors `HKUpdateFrequency` without importing HealthKit, so the plan
+/// itself stays unit-testable.
+nonisolated enum HealthDeliveryFrequency: String, Equatable, CaseIterable {
+    case immediate
+    case hourly
+}
+
+/// One HealthKit type the sync observes, and what it feeds.
+nonisolated struct HealthObservedType: Equatable {
+    /// The `HKObjectType` identifier string, e.g. `HKQuantityTypeIdentifierStepCount`.
+    let identifier: String
+    /// `metric_type` values this observation can produce, or [] for workouts.
+    let metricTypes: [String]
+    let frequency: HealthDeliveryFrequency
+}
+
+nonisolated enum HealthObservedTypes {
+    /// Workouts and sleep are asked for immediately — they are discrete, low
+    /// volume, and the whole point of event-driven sync is that a finished
+    /// workout lands without opening the app.
+    ///
+    /// The five quantity types are asked for hourly. iOS coalesces
+    /// high-frequency quantity samples regardless of what is requested, so
+    /// `.immediate` on steps would be a promise the OS does not keep.
+    static let all: [HealthObservedType] = [
+        HealthObservedType(identifier: "HKWorkoutTypeIdentifier",
+                           metricTypes: [],
+                           frequency: .immediate),
+        HealthObservedType(identifier: "HKCategoryTypeIdentifierSleepAnalysis",
+                           metricTypes: ["sleep_deep_minutes", "sleep_rem_minutes", "sleep_total_minutes"],
+                           frequency: .immediate),
+        HealthObservedType(identifier: "HKQuantityTypeIdentifierStepCount",
+                           metricTypes: ["steps"],
+                           frequency: .hourly),
+        HealthObservedType(identifier: "HKQuantityTypeIdentifierActiveEnergyBurned",
+                           metricTypes: ["active_calories"],
+                           frequency: .hourly),
+        HealthObservedType(identifier: "HKQuantityTypeIdentifierRestingHeartRate",
+                           metricTypes: ["resting_hr"],
+                           frequency: .hourly),
+        HealthObservedType(identifier: "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
+                           metricTypes: ["hrv"],
+                           frequency: .hourly),
+        HealthObservedType(identifier: "HKQuantityTypeIdentifierVO2Max",
+                           metricTypes: ["vo2_max"],
+                           frequency: .hourly)
+    ]
+
+    static var identifiers: [String] { all.map(\.identifier) }
+
+    static func frequency(for identifier: String) -> HealthDeliveryFrequency? {
+        all.first { $0.identifier == identifier }?.frequency
+    }
+}
+
+// MARK: - Debounce
+
+nonisolated enum HealthSyncDebounce {
+    /// Several observers commonly fire together — finishing a workout writes
+    /// the workout, active energy and heart-rate summaries at once. Collapsing
+    /// that burst into one upload avoids three round trips and three partial
+    /// batches.
+    static let window: TimeInterval = 2.0
+
+    /// Never hold a batch longer than this, however busy the burst is.
+    static let maxHold: TimeInterval = 10.0
+
+    /// Given when the current batch first became pending, how long may the
+    /// next fire extend the wait?
+    static func delay(firstPendingAt: Date?, now: Date, window: TimeInterval = window, maxHold: TimeInterval = maxHold) -> TimeInterval {
+        guard let firstPendingAt else { return window }
+        let heldFor = now.timeIntervalSince(firstPendingAt)
+        let remaining = maxHold - heldFor
+        if remaining <= 0 { return 0 }
+        return min(window, remaining)
+    }
+}
+
 // MARK: - Gate
 
 nonisolated enum HealthSyncGate {

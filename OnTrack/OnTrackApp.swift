@@ -71,15 +71,14 @@ class AppDelegate: NSObject, UIApplicationDelegate {
                 UserDefaults.standard.set(today, forKey: "healthkit_last_fetch_date")
             }
 
-            // The Supabase upload is gated separately, on the last SUCCESSFUL
-            // upload in Australia/Brisbane time. Previously the day was stamped
-            // before the upload ran and the upload itself was a detached utility
-            // task — so one failure, or one app switch, cost the whole day
-            // silently. It is now awaited, retried, and only marked done when
-            // Supabase actually accepted the rows.
-            if let userId = supabase.auth.currentUser?.id,
-               HealthKitManager.shared.shouldAutoSyncToday() {
-                await HealthKitManager.shared.performSync(userId: userId)
+            // Sync is event-driven, not once per day. HKObserverQuery plus
+            // background delivery wakes the app when Health changes; foreground
+            // is simply one more trigger onto the same incremental path. There
+            // is no daily gate any more — an unchanged type fetches nothing, so
+            // running this on every activation is cheap.
+            if let userId = supabase.auth.currentUser?.id {
+                HealthKitManager.shared.startEventDrivenSync(userId: userId)
+                await HealthKitManager.shared.syncOnForeground(userId: userId)
             }
 
             await NotificationManager.shared.refreshCheckInReminderIfNeeded()
@@ -143,6 +142,9 @@ struct OnTrackApp: App {
                             await NotificationManager.shared.saveTokenToProfile(userId: userId)
                             await NotificationManager.shared.scheduleSmartNotifications(userId: userId)
                             await HealthKitManager.shared.requestAuthorization()
+                            // Observers must be registered for the signed-in
+                            // user, not just at launch.
+                            HealthKitManager.shared.startEventDrivenSync(userId: userId)
                         }
                     }
                     .onChange(of: scenePhase) { _, phase in

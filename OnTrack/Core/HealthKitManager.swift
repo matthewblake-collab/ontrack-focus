@@ -262,10 +262,21 @@ class HealthKitManager {
     /// Manual "Sync Health Now". Refreshes the on-screen values *and* uploads —
     /// the old refresh button only did the former, which is why a user tapping
     /// it never populated Supabase.
-    @discardableResult
-    func syncNow(userId: UUID) async -> HealthSyncOutcome? {
+    func syncNow(userId: UUID) async {
         await fetchAll()
-        return await performSync(userId: userId)
+        // Manual refresh uploads. It takes the same incremental path as an
+        // observer fire and flushes straight away rather than debouncing.
+        await HealthSyncEngine.shared.syncAllTypes(userId: userId, flushImmediately: true)
+    }
+
+    /// Called on app foreground. Same path, debounced.
+    func syncOnForeground(userId: UUID) async {
+        await HealthSyncEngine.shared.syncAllTypes(userId: userId, flushImmediately: false)
+    }
+
+    /// Registers the HKObserverQuery set and background delivery.
+    func startEventDrivenSync(userId: UUID) {
+        HealthSyncEngine.shared.start(userId: userId)
     }
 
     /// Runs the upload with retry/backoff and keeps `syncStatus` honest.
@@ -302,7 +313,7 @@ class HealthKitManager {
             return outcome
         } catch {
             let willRetry = HealthSyncPolicy.classify(error) == .transient
-            let message = Self.sanitisedMessage(for: error)
+            let message = Self.sanitisedSyncMessage(for: error)
             // Counts and classes only — never a health value, never a credential.
             print("[HealthKit] Supabase sync failed (retryable: \(willRetry)): \(message)")
             await MainActor.run {
@@ -315,7 +326,7 @@ class HealthKitManager {
     /// Reduces an arbitrary error to a short, safe, user-facing string.
     /// Deliberately does not interpolate the raw error for unknown types —
     /// a PostgREST error body can echo row content back.
-    private static func sanitisedMessage(for error: Error) -> String {
+    nonisolated static func sanitisedSyncMessage(for error: Error) -> String {
         if let syncError = error as? HealthSyncError {
             return syncError.userFacingMessage
         }
@@ -378,12 +389,36 @@ class HealthKitManager {
             // timeout (retry) from an expired session (do not retry).
             throw urlError
         } catch {
-            throw HealthSyncError.upload(description: Self.sanitisedMessage(for: error))
+            throw HealthSyncError.upload(description: Self.sanitisedSyncMessage(for: error))
         }
 
         var counts: [String: Int] = [:]
         for row in allRows { counts[row.metricType, default: 0] += 1 }
         return .uploaded(HealthSyncReport(countsByMetricType: counts))
+    }
+
+    /// Recomputes one observed type's daily aggregates over an explicit window.
+    /// The event-driven engine uses this so an observer fire touches only the
+    /// days that actually changed, instead of re-deriving a rolling 30 days.
+    func dailyEntries(forObservedTypeIdentifier identifier: String, from: Date, to: Date) async -> [(date: Date, metricType: String, value: Double)] {
+        let rows: [HMEntry]
+        switch identifier {
+        case "HKQuantityTypeIdentifierStepCount":
+            rows = await dailySumRows(.stepCount, unit: .count(), from: from, to: to, type: "steps")
+        case "HKQuantityTypeIdentifierActiveEnergyBurned":
+            rows = await dailySumRows(.activeEnergyBurned, unit: .kilocalorie(), from: from, to: to, type: "active_calories")
+        case "HKQuantityTypeIdentifierRestingHeartRate":
+            rows = await dailyRecentRows(.restingHeartRate, unit: HKUnit.count().unitDivided(by: .minute()), from: from, to: to, type: "resting_hr")
+        case "HKQuantityTypeIdentifierHeartRateVariabilitySDNN":
+            rows = await dailyRecentRows(.heartRateVariabilitySDNN, unit: HKUnit.secondUnit(with: .milli), from: from, to: to, type: "hrv")
+        case "HKQuantityTypeIdentifierVO2Max":
+            rows = await dailyRecentRows(.vo2Max, unit: HKUnit(from: "ml/kg*min"), from: from, to: to, type: "vo2_max")
+        case "HKCategoryTypeIdentifierSleepAnalysis":
+            rows = await sleepDailyRows(from: from, to: to)
+        default:
+            rows = []
+        }
+        return rows.map { (date: $0.date, metricType: $0.metricType, value: $0.value) }
     }
 
     private struct HMEntry { let date: Date; let metricType: String; let value: Double }

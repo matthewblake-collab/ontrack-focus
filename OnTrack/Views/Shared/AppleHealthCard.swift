@@ -36,18 +36,45 @@ struct AppleHealthCard: View {
             .buttonStyle(.plain)
             .disabled(hk.syncStatus.isBusy || appState.currentUser == nil)
 
-            Text(appState.currentUser == nil ? "Sign in to sync" : hk.syncStatus.label)
+            Text(appState.currentUser == nil ? "Sign in to sync" : statusLine)
                 .font(.caption)
                 .foregroundStyle(statusColor)
                 .fixedSize(horizontal: false, vertical: true)
+
+            if pendingRows > 0 {
+                Label("\(pendingRows) row\(pendingRows == 1 ? "" : "s") queued for upload",
+                      systemImage: "tray.full")
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
+            }
         }
     }
+
+    /// The badge reports the last upload Supabase actually accepted. That
+    /// timestamp is persisted, so it survives a relaunch rather than resetting
+    /// to "Not synced yet" every cold start.
+    private var statusLine: String {
+        if case .idle = hk.syncStatus, let accepted = HealthSyncEngine.shared.lastAcceptedUploadAt {
+            return "Synced \(Self.badgeFormatter.string(from: accepted))"
+        }
+        return hk.syncStatus.label
+    }
+
+    private var pendingRows: Int { HealthSyncEngine.shared.pendingRowCount }
+
+    private static let badgeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.timeZone = HealthDay.timeZone
+        formatter.dateFormat = "d MMM, h:mm a"
+        return formatter
+    }()
 
     private var statusColor: Color {
         switch hk.syncStatus {
         case .failed: return .orange
         case .noData: return .yellow
         case .succeeded: return .green
+        case .idle: return HealthSyncEngine.shared.lastAcceptedUploadAt == nil ? .secondary : .green
         default: return .secondary
         }
     }
