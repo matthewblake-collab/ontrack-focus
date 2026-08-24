@@ -52,6 +52,9 @@ class HealthKitManager {
         guard HKHealthStore.isHealthDataAvailable() else { return }
         do {
             try await store.requestAuthorization(toShare: [], read: readTypes)
+            // iOS never exposes read-authorization status, so log what we can:
+            // the request returned without throwing.
+            print("[HealthSync] HealthKit authorization request returned; types requested=\(readTypes.count)")
             await MainActor.run { self.isAuthorized = true }
             await fetchAll()
         } catch {
@@ -98,31 +101,126 @@ class HealthKitManager {
 
     // MARK: - Sleep
 
+    /// Total time asleep for LAST NIGHT only.
+    ///
+    /// Three bugs previously inflated this (an 11.9 h reading against a real
+    /// night was the symptom):
+    ///
+    /// 1. The window ran from yesterday midnight to now — roughly 48 hours —
+    ///    so it summed last night *and* the tail of the night before.
+    /// 2. Every writer was summed together. Apple Watch, iPhone and any
+    ///    third-party sleep app all counted, where Apple Health instead picks
+    ///    one priority source.
+    /// 3. Overlapping samples were added, so an `asleepUnspecified` block from
+    ///    one writer double-counted the Core/Deep/REM it overlapped.
+    ///
+    /// Now: one night, bucketed by night-ending day exactly as `sleepDailyRows`
+    /// does; one source; overlapping intervals unioned rather than summed.
     private func fetchSleep() async -> Double? {
         guard let type = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) else { return nil }
-        let start = Calendar.current.startOfDay(for: Date().addingTimeInterval(-86400))
-        let end = Date()
-        let predicate = HKQuery.predicateForSamples(withStart: start, end: end)
+
+        // Wide enough to contain the whole of last night, then narrowed by the
+        // night-ending bucket below.
+        let calendar = HealthDay.calendar
+        let targetNight = calendar.startOfDay(for: Date())
+        let start = calendar.date(byAdding: .day, value: -2, to: targetNight) ?? targetNight
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: Date())
         let sort = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
 
         return await withCheckedContinuation { continuation in
-            let query = HKSampleQuery(sampleType: type, predicate: predicate, limit: 100, sortDescriptors: [sort]) { _, samples, _ in
+            let query = HKSampleQuery(sampleType: type, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: [sort]) { _, samples, _ in
                 guard let samples = samples as? [HKCategorySample] else {
                     continuation.resume(returning: nil)
                     return
                 }
-                let asleepSamples = samples.filter {
-                    $0.value == HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue ||
-                    $0.value == HKCategoryValueSleepAnalysis.asleepCore.rawValue ||
-                    $0.value == HKCategoryValueSleepAnalysis.asleepDeep.rawValue ||
-                    $0.value == HKCategoryValueSleepAnalysis.asleepREM.rawValue
+
+                // Night-ending day, matching the sleepDailyRows convention: a
+                // session that crosses midnight belongs to the wake-up day.
+                let lastNight = samples.filter {
+                    Self.isAsleep($0) && calendar.startOfDay(for: $0.endDate) == targetNight
                 }
-                let totalSeconds = asleepSamples.reduce(0.0) { $0 + $1.endDate.timeIntervalSince($1.startDate) }
-                let hours = totalSeconds / 3600
+
+                let chosen = Self.samplesFromPreferredSource(lastNight)
+                let seconds = Self.mergedDuration(of: chosen.map { ($0.startDate, $0.endDate) })
+                let hours = seconds / 3600
                 continuation.resume(returning: hours > 0 ? hours : nil)
             }
             store.execute(query)
         }
+    }
+
+    // MARK: - Sleep helpers
+
+    private static func isAsleep(_ sample: HKCategorySample) -> Bool {
+        sample.value == HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue ||
+        sample.value == HKCategoryValueSleepAnalysis.asleepCore.rawValue ||
+        sample.value == HKCategoryValueSleepAnalysis.asleepDeep.rawValue ||
+        sample.value == HKCategoryValueSleepAnalysis.asleepREM.rawValue
+    }
+
+    private static func isStagedValue(_ value: Int) -> Bool {
+        value == HKCategoryValueSleepAnalysis.asleepCore.rawValue ||
+        value == HKCategoryValueSleepAnalysis.asleepDeep.rawValue ||
+        value == HKCategoryValueSleepAnalysis.asleepREM.rawValue
+    }
+
+    /// Picks ONE writer and returns only its samples. Never mixes sources —
+    /// summing across writers is what produced the inflated figure.
+    ///
+    /// Priority: Apple Watch, then any source that writes real sleep stages,
+    /// then the source with the most recorded time. Ties break on bundle id so
+    /// the result is stable between runs.
+    static func samplesFromPreferredSource(_ samples: [HKCategorySample]) -> [HKCategorySample] {
+        guard !samples.isEmpty else { return [] }
+
+        let grouped = Dictionary(grouping: samples) { $0.sourceRevision.source.bundleIdentifier }
+        guard grouped.count > 1 else { return samples }
+
+        func isWatch(_ group: [HKCategorySample]) -> Bool {
+            group.contains { ($0.sourceRevision.productType ?? "").hasPrefix("Watch") }
+        }
+        func hasStages(_ group: [HKCategorySample]) -> Bool {
+            group.contains { isStagedValue($0.value) }
+        }
+        func totalSeconds(_ group: [HKCategorySample]) -> Double {
+            mergedDuration(of: group.map { ($0.startDate, $0.endDate) })
+        }
+
+        let ranked = grouped.sorted { lhs, rhs in
+            let (lKey, lGroup) = lhs
+            let (rKey, rGroup) = rhs
+            if isWatch(lGroup) != isWatch(rGroup) { return isWatch(lGroup) }
+            if hasStages(lGroup) != hasStages(rGroup) { return hasStages(lGroup) }
+            let lTotal = totalSeconds(lGroup), rTotal = totalSeconds(rGroup)
+            if lTotal != rTotal { return lTotal > rTotal }
+            return lKey < rKey
+        }
+
+        return ranked.first?.value ?? samples
+    }
+
+    /// Union of the intervals, so overlapping samples are counted once.
+    /// Summing durations double-counts an `asleepUnspecified` block that
+    /// overlaps the Core/Deep/REM stages inside it.
+    static func mergedDuration(of intervals: [(Date, Date)]) -> Double {
+        let valid = intervals.filter { $0.1 > $0.0 }.sorted { $0.0 < $1.0 }
+        guard !valid.isEmpty else { return 0 }
+
+        var total: Double = 0
+        var currentStart = valid[0].0
+        var currentEnd = valid[0].1
+
+        for (start, end) in valid.dropFirst() {
+            if start > currentEnd {
+                total += currentEnd.timeIntervalSince(currentStart)
+                currentStart = start
+                currentEnd = end
+            } else if end > currentEnd {
+                currentEnd = end
+            }
+        }
+        total += currentEnd.timeIntervalSince(currentStart)
+        return total
     }
 
     // MARK: - Workouts
@@ -488,10 +586,13 @@ class HealthKitManager {
         let predicate = HKQuery.predicateForSamples(withStart: from, end: to)
         return await withCheckedContinuation { continuation in
             let query = HKSampleQuery(sampleType: type, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, samples, _ in
-                guard let samples = samples as? [HKCategorySample] else {
+                guard let rawSamples = samples as? [HKCategorySample] else {
                     continuation.resume(returning: [])
                     return
                 }
+                // Same single-source rule as the card: never sum across
+                // writers, or a second sleep app doubles every night.
+                let samples = Self.samplesFromPreferredSource(rawSamples)
                 // Bucket by "night ending" date: sample end date's calendar day.
                 var deepByDay:  [Date: Double] = [:]
                 var remByDay:   [Date: Double] = [:]

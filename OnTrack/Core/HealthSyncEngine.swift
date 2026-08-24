@@ -64,7 +64,18 @@ nonisolated final class HealthSyncEngine: @unchecked Sendable {
     /// Registers one observer per sampled type and asks iOS for background
     /// delivery at the planned frequency. Safe to call repeatedly.
     func start(userId: UUID) {
-        guard HKHealthStore.isHealthDataAvailable() else { return }
+        // Probe above both guards. Without it, "no observing logs" is
+        // ambiguous between start() never running, start() bailing at one of
+        // the two guards, and the observers registering but HealthKit
+        // returning nothing.
+        let available = HKHealthStore.isHealthDataAvailable()
+        lock.lock(); let wasStarted = isStarted; lock.unlock()
+        print("[HealthSync] start() entered: healthDataAvailable=\(available) alreadyStarted=\(wasStarted) types=\(HealthObservedTypes.all.count)")
+
+        guard available else {
+            print("[HealthSync] start() ABORTED: HealthKit unavailable on this device")
+            return
+        }
 
         lock.lock()
         currentUserId = userId
@@ -72,7 +83,10 @@ nonisolated final class HealthSyncEngine: @unchecked Sendable {
         isStarted = true
         lock.unlock()
 
-        guard !alreadyStarted else { return }
+        guard !alreadyStarted else {
+            print("[HealthSync] start() SKIPPED: observers already registered this process")
+            return
+        }
 
         for observed in HealthObservedTypes.all {
             guard let sampleType = Self.sampleType(for: observed.identifier) else {
@@ -103,7 +117,11 @@ nonisolated final class HealthSyncEngine: @unchecked Sendable {
                 for: sampleType,
                 frequency: observed.frequency.hkFrequency
             ) { success, error in
-                if !success {
+                if success {
+                    // Positive confirmation: without this, a silent log is
+                    // indistinguishable from observers never registering.
+                    print("[HealthSync] observing \(observed.identifier) frequency=\(observed.frequency.rawValue) backgroundDelivery=enabled")
+                } else {
                     print("[HealthSync] background delivery refused for \(observed.identifier): \(error?.localizedDescription ?? "unknown")")
                 }
             }
@@ -172,6 +190,9 @@ nonisolated final class HealthSyncEngine: @unchecked Sendable {
 
         let nothingChanged = result.added.isEmpty && result.deletedCount == 0
         if nothingChanged {
+            // Logged, not silent: an empty result here is indistinguishable
+            // from "reads not authorised", and silence hid that.
+            print("[HealthSync] ingest \(observed.identifier) EMPTY (added=0 deleted=0, hadAnchor=\(anchor != nil))")
             // Advance anyway so an empty wake-up is not replayed forever.
             persist(anchor: result.newAnchor, for: observed.identifier)
             return false
@@ -192,6 +213,8 @@ nonisolated final class HealthSyncEngine: @unchecked Sendable {
 
         if !batch.isEmpty { store.enqueue(batch) }
         persist(anchor: result.newAnchor, for: observed.identifier)
+        // Counts only — never a health value.
+        print("[HealthSync] ingest \(observed.identifier) added=\(result.added.count) deleted=\(result.deletedCount) queued=\(batch.rowCount)")
         return !batch.isEmpty
     }
 
@@ -333,6 +356,7 @@ nonisolated final class HealthSyncEngine: @unchecked Sendable {
     /// accepted, and only then records the "Synced" timestamp.
     func flush(userId: UUID) async {
         let batch = store.pendingBatch().coalesced()
+        print("[HealthSync] flush requested: \(batch.rowCount) queued rows")
         guard !batch.isEmpty else {
             lock.lock(); firstPendingAt = nil; lock.unlock()
             return
@@ -355,6 +379,7 @@ nonisolated final class HealthSyncEngine: @unchecked Sendable {
             store.recordAcceptedUpload(at: now)
 
             lock.lock(); firstPendingAt = nil; lock.unlock()
+            print("[HealthSync] flush ACCEPTED by Supabase: \(report.rowCount) rows, \(report.metricTypeCount) keys, at \(HealthSyncEngine.isoFormatter.string(from: now))")
             await MainActor.run { HealthKitManager.shared.syncStatus = .succeeded(at: now, report: report) }
         } catch {
             // The queue is left intact so the next fire, foreground or manual
