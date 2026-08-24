@@ -50,25 +50,19 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // scheduling work so the rebuild below starts from a clean slate.
         NotificationManager.shared.wipeStaleSchedulesIfNewBuild()
 
-        // Observer registration runs in its own task, ahead of everything
-        // below. It used to sit at the end of the serial chain in the Task
-        // that follows, behind the HealthKit permission sheet and then behind
-        // several network calls — an unanswered sheet or a hanging request
-        // meant observers were never registered at all and background delivery
-        // silently never happened. start() is incremental and safe to call
-        // repeatedly, so it is invoked here and again once auth resolves.
+        // Opportunistic registration: covers a warm activation where the
+        // session is already live. On a cold launch this samples too early —
+        // the Supabase session is restored asynchronously, so currentUser is
+        // still nil here and this does nothing. That is fine, and was the bug
+        // when it was the ONLY trigger: the auth-state change in the scene
+        // below now guarantees registration once the session resolves.
+        // start() is incremental, so both firing is harmless.
         if let userId = supabase.auth.currentUser?.id {
-            Task { HealthKitManager.shared.startEventDrivenSync(userId: userId) }
+            HealthKitManager.shared.startEventDrivenSync(userId: userId)
         }
 
         Task {
             await HealthKitManager.shared.requestAuthorization()
-
-            // Second pass: authorization has now resolved, so any type the
-            // first pass could not register is picked up here.
-            if let userId = supabase.auth.currentUser?.id {
-                HealthKitManager.shared.startEventDrivenSync(userId: userId)
-            }
 
             // Flush any pending APNs token now that auth is confirmed. Covers the
             // cold-start race where the token arrives before the Supabase session
@@ -153,15 +147,35 @@ struct OnTrackApp: App {
                     .environmentObject(appState)
                     .environmentObject(themeManager)
                     .preferredColorScheme(themeManager.colorSchemePreference.colorScheme)
+                    .task {
+                        // Covers the cold-launch ordering that .onChange cannot:
+                        // AppState.checkSession() populates currentUser while
+                        // LaunchScreenView is still showing, so by the time
+                        // ContentView mounts the value is ALREADY set and no
+                        // change event ever fires. .task reads the current
+                        // value instead of waiting for a transition.
+                        //
+                        // Together the two are exhaustive: session resolves
+                        // before mount -> .task; after mount -> .onChange.
+                        // start() is incremental, so both firing is harmless.
+                        if let userId = appState.currentUser?.id {
+                            HealthKitManager.shared.startEventDrivenSync(userId: userId)
+                        }
+                    }
                     .onChange(of: appState.currentUser?.id) { _, newId in
                         guard let userId = newId else { return }
+
+                        // Registration runs synchronously here, before any
+                        // await. This is the reliable trigger: it fires the
+                        // moment the session resolves, which is precisely the
+                        // condition the activation path samples too early and
+                        // misses on a cold launch.
+                        HealthKitManager.shared.startEventDrivenSync(userId: userId)
+
                         Task {
                             await NotificationManager.shared.saveTokenToProfile(userId: userId)
                             await NotificationManager.shared.scheduleSmartNotifications(userId: userId)
                             await HealthKitManager.shared.requestAuthorization()
-                            // Observers must be registered for the signed-in
-                            // user, not just at launch.
-                            HealthKitManager.shared.startEventDrivenSync(userId: userId)
                         }
                     }
                     .onChange(of: scenePhase) { _, phase in

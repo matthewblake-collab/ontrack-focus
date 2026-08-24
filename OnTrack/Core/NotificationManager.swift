@@ -164,6 +164,14 @@ final class NotificationManager: NSObject {
         // login would sit in pendingDeviceToken and never reach the DB. Idempotent.
         if let userId = supabase.auth.currentUser?.id {
             Task { await saveTokenToProfile(userId: userId) }
+        } else {
+            // Same class of bug as the HealthKit observer registration: on a
+            // cold launch the session has not been restored yet, so this guard
+            // fails and the save was silently skipped. The token is already
+            // persisted above, and the auth-state change in OnTrackApp saves
+            // it the moment the session resolves — logged rather than dropped
+            // silently, which is what hid the failure.
+            print("[Notifications] Device token deferred: no session yet, will save on auth-state change")
         }
     }
 
