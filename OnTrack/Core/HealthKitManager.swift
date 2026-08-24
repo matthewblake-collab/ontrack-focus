@@ -1,12 +1,19 @@
 import Foundation
 import HealthKit
 import Supabase
+import UIKit
 
 @Observable
 class HealthKitManager {
     static let shared = HealthKitManager()
 
+    /// UserDefaults key holding the Brisbane day (`yyyy-MM-dd`) of the last
+    /// upload that actually reached Supabase. Written only on success, so a
+    /// failed sync stays retryable for the rest of the day.
+    static let lastSyncSuccessDayKey = "healthkit_last_sync_success_date"
+
     var isAuthorized = false
+    var syncStatus: HealthSyncStatus = .idle
     var sleepHours: Double? = nil
     var restingHeartRate: Double? = nil
     var heartRateVariability: Double? = nil
@@ -242,12 +249,102 @@ class HealthKitManager {
         }
     }
 
+    // MARK: - Sync entry points
+
+    /// True when no successful upload has happened yet today (Brisbane).
+    func shouldAutoSyncToday(now: Date = Date()) -> Bool {
+        HealthSyncGate.shouldAutoSync(
+            lastSuccessDay: UserDefaults.standard.string(forKey: Self.lastSyncSuccessDayKey),
+            today: HealthDay.dayString(for: now)
+        )
+    }
+
+    /// Manual "Sync Health Now". Refreshes the on-screen values *and* uploads —
+    /// the old refresh button only did the former, which is why a user tapping
+    /// it never populated Supabase.
+    @discardableResult
+    func syncNow(userId: UUID) async -> HealthSyncOutcome? {
+        await fetchAll()
+        return await performSync(userId: userId)
+    }
+
+    /// Runs the upload with retry/backoff and keeps `syncStatus` honest.
+    /// Returns nil when the sync failed. Never throws to the caller.
+    @discardableResult
+    func performSync(userId: UUID, now: Date = Date()) async -> HealthSyncOutcome? {
+        await MainActor.run { self.syncStatus = .syncing }
+
+        // Keep a short assertion so backgrounding mid-upload doesn't suspend us
+        // before the request completes. This was a live failure mode: the sync
+        // ran in a detached utility task that could be frozen on app switch.
+        let assertion = await MainActor.run {
+            UIApplication.shared.beginBackgroundTask(withName: "HealthMetricsSync")
+        }
+        defer {
+            if assertion != .invalid {
+                Task { @MainActor in UIApplication.shared.endBackgroundTask(assertion) }
+            }
+        }
+
+        do {
+            let outcome = try await HealthSyncRetry.run { _ in
+                try await self.syncToSupabase(userId: userId)
+            }
+
+            switch outcome {
+            case .uploaded(let report):
+                UserDefaults.standard.set(HealthDay.dayString(for: now), forKey: Self.lastSyncSuccessDayKey)
+                await MainActor.run { self.syncStatus = .succeeded(at: now, report: report) }
+            case .noData:
+                // Not a failure, but not a success either — leave the gate open.
+                await MainActor.run { self.syncStatus = .noData(at: now) }
+            }
+            return outcome
+        } catch {
+            let willRetry = HealthSyncPolicy.classify(error) == .transient
+            let message = Self.sanitisedMessage(for: error)
+            // Counts and classes only — never a health value, never a credential.
+            print("[HealthKit] Supabase sync failed (retryable: \(willRetry)): \(message)")
+            await MainActor.run {
+                self.syncStatus = .failed(message: message, willRetry: willRetry, at: now)
+            }
+            return nil
+        }
+    }
+
+    /// Reduces an arbitrary error to a short, safe, user-facing string.
+    /// Deliberately does not interpolate the raw error for unknown types —
+    /// a PostgREST error body can echo row content back.
+    private static func sanitisedMessage(for error: Error) -> String {
+        if let syncError = error as? HealthSyncError {
+            return syncError.userFacingMessage
+        }
+        if let urlError = error as? URLError {
+            switch urlError.code {
+            case .notConnectedToInternet, .networkConnectionLost:
+                return "No network connection"
+            case .timedOut:
+                return "The request timed out"
+            case .userAuthenticationRequired:
+                return "Sign in expired"
+            default:
+                return "Network error (\(urlError.code.rawValue))"
+            }
+        }
+        return "Upload rejected by the server"
+    }
+
     /// Pulls daily-bucketed HealthKit data since the last sync and upserts to `health_metrics`.
     /// Safe to call repeatedly — upsert keys on (user_id, recorded_at, metric_type).
-    func syncToSupabase(userId: UUID) async {
-        guard HKHealthStore.isHealthDataAvailable() else { return }
+    /// Throws on failure so the caller can retry; returns `.noData` when HealthKit
+    /// itself had nothing in the window.
+    func syncToSupabase(userId: UUID) async throws -> HealthSyncOutcome {
+        guard HKHealthStore.isHealthDataAvailable() else { throw HealthSyncError.healthDataUnavailable }
 
-        let cal = Calendar.current
+        // Buckets are anchored to Australia/Brisbane midnight, not device-local,
+        // so the stored `recorded_at` contract holds regardless of where the
+        // phone is. Brisbane is UTC+10 with no DST.
+        let cal = HealthDay.calendar
         let endOfToday = cal.startOfDay(for: Date())
         let start = cal.date(byAdding: .day, value: -30, to: endOfToday) ?? endOfToday
 
@@ -259,11 +356,11 @@ class HealthKitManager {
         async let sleepRows  = sleepDailyRows(from: start, to: endOfToday)
 
         let allRows = await stepsRows + calsRows + rhrRows + hrvRows + vo2Rows + sleepRows
-        guard !allRows.isEmpty else { return }
+        guard !allRows.isEmpty else { return .noData }
 
         let payload = allRows.map { entry in
             HealthMetricUpsert(
-                userId: userId.uuidString,
+                userId: userId.uuidString.lowercased(),
                 recordedAt: HealthKitManager.isoFormatter.string(from: entry.date),
                 metricType: entry.metricType,
                 value: entry.value,
@@ -276,9 +373,17 @@ class HealthKitManager {
                 .from("health_metrics")
                 .upsert(payload, onConflict: "user_id,recorded_at,metric_type")
                 .execute()
+        } catch let urlError as URLError {
+            // Preserve transport errors as-is so the retry policy can tell a
+            // timeout (retry) from an expired session (do not retry).
+            throw urlError
         } catch {
-            print("[HealthKit] Supabase sync failed: \(error)")
+            throw HealthSyncError.upload(description: Self.sanitisedMessage(for: error))
         }
+
+        var counts: [String: Int] = [:]
+        for row in allRows { counts[row.metricType, default: 0] += 1 }
+        return .uploaded(HealthSyncReport(countsByMetricType: counts))
     }
 
     private struct HMEntry { let date: Date; let metricType: String; let value: Double }
@@ -297,13 +402,16 @@ class HealthKitManager {
                 quantityType: qType,
                 quantitySamplePredicate: predicate,
                 options: .cumulativeSum,
-                anchorDate: Calendar.current.startOfDay(for: from),
+                anchorDate: HealthDay.startOfDay(for: from),
                 intervalComponents: DateComponents(day: 1)
             )
             query.initialResultsHandler = { _, results, _ in
                 var out: [HMEntry] = []
                 results?.enumerateStatistics(from: from, to: to) { stat, _ in
-                    if let v = stat.sumQuantity()?.doubleValue(for: unit), v > 0 {
+                    // A day with no samples yields nil and is skipped. A day
+                    // genuinely measured at 0 is kept — never zero-fill a gap.
+                    let v = stat.sumQuantity()?.doubleValue(for: unit)
+                    if HealthSyncPolicy.shouldInclude(measured: v), let v {
                         out.append(HMEntry(date: stat.startDate, metricType: type, value: v))
                     }
                 }
@@ -321,13 +429,16 @@ class HealthKitManager {
                 quantityType: qType,
                 quantitySamplePredicate: predicate,
                 options: .discreteAverage,
-                anchorDate: Calendar.current.startOfDay(for: from),
+                anchorDate: HealthDay.startOfDay(for: from),
                 intervalComponents: DateComponents(day: 1)
             )
             query.initialResultsHandler = { _, results, _ in
                 var out: [HMEntry] = []
                 results?.enumerateStatistics(from: from, to: to) { stat, _ in
-                    if let v = stat.averageQuantity()?.doubleValue(for: unit), v > 0 {
+                    // Daily mean, not the latest reading. Missing days are
+                    // skipped rather than written as 0.
+                    let v = stat.averageQuantity()?.doubleValue(for: unit)
+                    if HealthSyncPolicy.shouldInclude(measured: v), let v {
                         out.append(HMEntry(date: stat.startDate, metricType: type, value: v))
                     }
                 }
@@ -350,7 +461,7 @@ class HealthKitManager {
                 var deepByDay:  [Date: Double] = [:]
                 var remByDay:   [Date: Double] = [:]
                 var totalByDay: [Date: Double] = [:]
-                let cal = Calendar.current
+                let cal = HealthDay.calendar
                 for s in samples {
                     let day = cal.startOfDay(for: s.endDate)
                     let minutes = s.endDate.timeIntervalSince(s.startDate) / 60.0

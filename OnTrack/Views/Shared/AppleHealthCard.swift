@@ -4,7 +4,53 @@ import HealthKit
 struct AppleHealthCard: View {
     @State private var hk = HealthKitManager.shared
     @EnvironmentObject private var themeManager: ThemeManager
+    @EnvironmentObject private var appState: AppState
     @State private var showWorkouts = false
+
+    /// Manual upload plus an honest status line. The old refresh button only
+    /// re-read HealthKit locally, so tapping it never wrote anything to Supabase.
+    private var syncSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Divider().overlay(Color.white.opacity(0.12))
+
+            Button {
+                guard let userId = appState.currentUser?.id else { return }
+                Task { await hk.syncNow(userId: userId) }
+            } label: {
+                HStack(spacing: 8) {
+                    if hk.syncStatus.isBusy {
+                        ProgressView().controlSize(.small).tint(.white)
+                    } else {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                    }
+                    Text(hk.syncStatus.isBusy ? "Syncing…" : "Sync Health Now")
+                        .fontWeight(.semibold)
+                }
+                .font(.subheadline)
+                .foregroundStyle(.white)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(Color.red.opacity(appState.currentUser == nil ? 0.35 : 1.0))
+                .cornerRadius(20)
+            }
+            .buttonStyle(.plain)
+            .disabled(hk.syncStatus.isBusy || appState.currentUser == nil)
+
+            Text(appState.currentUser == nil ? "Sign in to sync" : hk.syncStatus.label)
+                .font(.caption)
+                .foregroundStyle(statusColor)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var statusColor: Color {
+        switch hk.syncStatus {
+        case .failed: return .orange
+        case .noData: return .yellow
+        case .succeeded: return .green
+        default: return .secondary
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -92,6 +138,8 @@ struct AppleHealthCard: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
+
+                syncSection
             }
         }
         .padding()

@@ -64,16 +64,22 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             formatter.dateFormat = "yyyy-MM-dd"
             let today = formatter.string(from: Date())
 
-            // Re-fetch HealthKit data once per calendar day
+            // Re-fetch HealthKit data once per calendar day (on-screen values only).
             let lastFetch = UserDefaults.standard.string(forKey: "healthkit_last_fetch_date")
             if lastFetch != today {
                 await HealthKitManager.shared.fetchAll()
                 UserDefaults.standard.set(today, forKey: "healthkit_last_fetch_date")
-                if let userId = supabase.auth.currentUser?.id {
-                    Task.detached(priority: .utility) {
-                        await HealthKitManager.shared.syncToSupabase(userId: userId)
-                    }
-                }
+            }
+
+            // The Supabase upload is gated separately, on the last SUCCESSFUL
+            // upload in Australia/Brisbane time. Previously the day was stamped
+            // before the upload ran and the upload itself was a detached utility
+            // task — so one failure, or one app switch, cost the whole day
+            // silently. It is now awaited, retried, and only marked done when
+            // Supabase actually accepted the rows.
+            if let userId = supabase.auth.currentUser?.id,
+               HealthKitManager.shared.shouldAutoSyncToday() {
+                await HealthKitManager.shared.performSync(userId: userId)
             }
 
             await NotificationManager.shared.refreshCheckInReminderIfNeeded()
