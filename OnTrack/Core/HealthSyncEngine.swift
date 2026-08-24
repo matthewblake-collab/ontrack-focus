@@ -46,7 +46,9 @@ nonisolated final class HealthSyncEngine: @unchecked Sendable {
 
     private let lock = NSLock()
     private var observerQueries: [HKObserverQuery] = []
-    private var isStarted = false
+    /// Types whose observer is live. Registration is incremental, so a repeat
+    /// start() only fills gaps instead of being skipped wholesale.
+    private var registeredTypeIdentifiers = Set<String>()
     private var currentUserId: UUID?
 
     private var flushTask: Task<Void, Never>?
@@ -69,26 +71,28 @@ nonisolated final class HealthSyncEngine: @unchecked Sendable {
         // the two guards, and the observers registering but HealthKit
         // returning nothing.
         let available = HKHealthStore.isHealthDataAvailable()
-        lock.lock(); let wasStarted = isStarted; lock.unlock()
-        print("[HealthSync] start() entered: healthDataAvailable=\(available) alreadyStarted=\(wasStarted) types=\(HealthObservedTypes.all.count)")
+        lock.lock()
+        currentUserId = userId
+        let alreadyRegistered = registeredTypeIdentifiers
+        lock.unlock()
+        print("[HealthSync] start() entered: healthDataAvailable=\(available) registered=\(alreadyRegistered.count)/\(HealthObservedTypes.all.count)")
 
         guard available else {
             print("[HealthSync] start() ABORTED: HealthKit unavailable on this device")
             return
         }
 
-        lock.lock()
-        currentUserId = userId
-        let alreadyStarted = isStarted
-        isStarted = true
-        lock.unlock()
-
-        guard !alreadyStarted else {
-            print("[HealthSync] start() SKIPPED: observers already registered this process")
+        // Registration is per type and incremental rather than all-or-nothing.
+        // Calling start() again is cheap and tops up anything still missing —
+        // which is what makes it safe to invoke both before and after the
+        // authorization prompt resolves.
+        let pending = HealthObservedTypes.all.filter { !alreadyRegistered.contains($0.identifier) }
+        guard !pending.isEmpty else {
+            print("[HealthSync] start() COMPLETE: all \(HealthObservedTypes.all.count) types already observed")
             return
         }
 
-        for observed in HealthObservedTypes.all {
+        for observed in pending {
             guard let sampleType = Self.sampleType(for: observed.identifier) else {
                 print("[HealthSync] no HKSampleType for \(observed.identifier)")
                 continue
@@ -111,7 +115,10 @@ nonisolated final class HealthSyncEngine: @unchecked Sendable {
 
             healthStore.execute(query)
 
-            lock.lock(); observerQueries.append(query); lock.unlock()
+            lock.lock()
+            observerQueries.append(query)
+            registeredTypeIdentifiers.insert(observed.identifier)
+            lock.unlock()
 
             healthStore.enableBackgroundDelivery(
                 for: sampleType,

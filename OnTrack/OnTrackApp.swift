@@ -49,8 +49,26 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // triggers left behind by pre-fix builds). Runs synchronously before any
         // scheduling work so the rebuild below starts from a clean slate.
         NotificationManager.shared.wipeStaleSchedulesIfNewBuild()
+
+        // Observer registration runs in its own task, ahead of everything
+        // below. It used to sit at the end of the serial chain in the Task
+        // that follows, behind the HealthKit permission sheet and then behind
+        // several network calls — an unanswered sheet or a hanging request
+        // meant observers were never registered at all and background delivery
+        // silently never happened. start() is incremental and safe to call
+        // repeatedly, so it is invoked here and again once auth resolves.
+        if let userId = supabase.auth.currentUser?.id {
+            Task { HealthKitManager.shared.startEventDrivenSync(userId: userId) }
+        }
+
         Task {
             await HealthKitManager.shared.requestAuthorization()
+
+            // Second pass: authorization has now resolved, so any type the
+            // first pass could not register is picked up here.
+            if let userId = supabase.auth.currentUser?.id {
+                HealthKitManager.shared.startEventDrivenSync(userId: userId)
+            }
 
             // Flush any pending APNs token now that auth is confirmed. Covers the
             // cold-start race where the token arrives before the Supabase session
@@ -77,7 +95,6 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             // is no daily gate any more — an unchanged type fetches nothing, so
             // running this on every activation is cheap.
             if let userId = supabase.auth.currentUser?.id {
-                HealthKitManager.shared.startEventDrivenSync(userId: userId)
                 await HealthKitManager.shared.syncOnForeground(userId: userId)
             }
 
