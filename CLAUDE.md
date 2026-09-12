@@ -68,7 +68,7 @@ See `.claude/rules/supabase.md` — loads automatically when editing .swift and 
 - RLS safety rules (read before ANY policy or UUID change): `SKILL_ontrack_rls_safety.md`
 
 ## Installed Claude Code plugins
-- `/gsd:quick "task"` for small tasks, `/ultraplan` for large features. Run `/insights` at end of every session.
+- Small tasks: work directly, in plan mode when non-trivial; `/ultraplan` for large features. Run `/session` at end of every session.
 
 ## Skill invocation rules
 - `/advisor` is for debugging failing code or error triage ONLY. Do not invoke it for design, planning, or non-debugging tasks — it wastes context.
