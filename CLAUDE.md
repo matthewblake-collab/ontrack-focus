@@ -27,7 +27,7 @@ Project root:
 - Never rename existing models, files, DB columns, or asset names unless explicitly approved
 - Never assume helper methods or properties exist, state assumptions clearly first if needed
 - Prefer the simplest stable implementation over clever or over-engineered solutions
-- When fixing a bug, confirm the actual root cause before writing any code. Run /diagnose first. Never stack speculative fixes.
+- When fixing a bug, confirm the actual root cause before writing any code. Use superpowers:systematic-debugging first. Never stack speculative fixes.
 
 ## Scope and read-only rules
 - When asked to 'report', 'audit', 'observe', or 'read', do NOT make any code changes. Produce observations and summaries only. If a fix seems beneficial, propose it and wait for explicit approval.
@@ -37,6 +37,9 @@ Project root:
 
 ## SwiftUI rules
 See `.claude/rules/swiftui.md` — loads automatically when editing .swift files (includes app architecture, observable patterns, UI rules, auth, analytics).
+
+## Custom skill
+`SKILL_ontrack_core.md` at `~/Brain/02-projects/ontrack/SKILL_ontrack_core.md` — load ON DEMAND for architecture/conventions context, not on every session start.
 
 ## File structure rules
 - New feature view models go in feature folders under `OnTrack/ViewModels/<Feature>/`
@@ -79,7 +82,7 @@ See `.claude/rules/supabase.md` — loads automatically when editing .swift and 
 At session end: (1) update `~/Brain/02-projects/ontrack/DAILY_STATUS.md` (auto-generated daily status dashboard — refresh the relevant sections, do NOT append numbered `## Session NN` entries); (2) write 5-line summary to `~/Desktop/OnTrack/OnTrack/.claude/logs/session-YYYYMMDD-HHMM.md`.
 
 ## MCP Servers
-- Playwright MCP is the active browser automation tool. Do NOT attempt to use chrome-local-mcp or claude-in-chrome — deprecated, will not connect.
+- claude-in-chrome PERMITTED (ban lifted 2026-06-18) — interactive/logged-in tasks only; Playwright MCP for headless/scheduled. chrome-local-mcp NEVER.
 - If an MCP server fails to load after 2 attempts, stop and tell the user immediately.
 - MCP server debugging has a 5-minute timebox. Pivot to alternative approach if not resolved.
 
