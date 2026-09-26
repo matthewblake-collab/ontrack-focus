@@ -1,100 +1,60 @@
-# CLAUDE.md
+# CLAUDE.md — OnTrack Focus (iOS)
 
-## Mission
-Work on OnTrack Focus, a SwiftUI + MVVM iOS app with a Supabase backend for group scheduling, accountability, and wellness tracking.
+SwiftUI + MVVM iOS app on Supabase. App/TestFlight name OnTrack Focus, bundle ID `com.blakeMatt.OnTrack`.
+Source lives in `OnTrack/` under this repo root.
 
-App/TestFlight name: OnTrack Focus  
-Bundle ID: com.blakeMatt.OnTrack
+## Build and test
+- Build (from this directory):
+  `xcodebuild -scheme OnTrack -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max' build 2>&1 | grep -E 'error:|BUILD (SUCCEEDED|FAILED)'`
+- Before any xcodebuild run: `pkill -f xcodebuild` and `rm -rf ~/Library/Caches/org.swift.swiftpm` (hung builds, SPM locks).
+- 10-minute build timeout: if exceeded, stop and report the last 50 lines instead of retrying.
+- Schemes: `OnTrack`, `OnTrackWidgetExtension`. Test targets `OnTrackTests` and `OnTrackUITests` exist; no test command
+  has been verified. Confirm the scheme's test action before relying on `xcodebuild test`.
+- UI edits: render the affected `#Preview` with `/capture` before committing. A compile is not a design check.
 
-Project root:
-`/Users/matthewblake/Desktop/OnTrack/OnTrack/OnTrack/`
+## Names that must not drift
+- `AppGroup`, never `Group`. `AppSession`, never `Session`.
+- Friend IDs are `String`, not `UUID`. Never call `.uuidString` on a friend ID.
+- `Profile.displayName` maps to `display_name`.
+- The background asset typo `backround_X` is intentional. Never rename it.
+- Never rename existing models, files, DB columns or asset names without approval.
 
-## Known Pitfalls (never repeat these)
-- Never invoke `/advisor` for design or architecture questions — only for active debugging
-- Before any Netlify deploy, check if previous deploy is already live first — avoid redundant deploys
-- Before any TestFlight/GitHub publishing work, pre-flight check: verify Team ID, API key, gh CLI auth, SSH keys exist
+## Observable ownership split (never mix in one view tree)
+- `@Observable`, instantiated with `@State`: `GroupViewModel`, `SessionViewModel`, `AttendanceViewModel`,
+  `FriendsViewModel`, `GroupStatusVM`, `FeedViewModel`.
+- `ObservableObject` / `@Published`, instantiated with `@StateObject` or `@ObservedObject`: `AppState`, `HabitViewModel`,
+  `SupplementViewModel`, `AuthViewModel`.
+- On text-input `onChange`, compare the new String value directly. A `@Published` Bool gate fires several times per
+  keystroke (the autocomplete double-tap bug).
 
-## Communication rules (non-negotiable)
-- **No glazing.** Never compliment Matt's work, ideas, or decisions. Flattery is noise. Intent, efficiency, and first-time correctness are the only metrics that matter. If something is wrong or suboptimal, say so directly.
-- **Intent interview before execution.** If a request is broad, ambiguous, or has multiple valid interpretations, stop and ask the minimum number of targeted questions to lock down intent before writing a single line. Do not guess, do not pick the most likely interpretation and proceed, do not produce a hedged multi-option response. Ask, wait, then act. Triggers: vague scope ("clean this up", "improve X"), unclear target (no specific file/feature named), multiple equally valid implementation paths, or any request where guessing wrong means rework.
-- **Gate check before marking complete.** Before updating any plan, marking a phase APPROVED, or declaring work done — list every gate (build, previews, screenshots, DB migration, tests) with PASS/FAIL/SKIPPED. If any gate is not PASS, do not mark complete. Report what's outstanding and ask how to proceed.
-- **Pre-flight before autonomous runs.** Before any multi-step autonomous task (release build, content pipeline, DB migration, multi-phase feature) — verify: correct project directory, CLAUDE.md in scope, Supabase SDK version, relevant API keys in env. Output a one-line summary, then proceed.
+## SwiftUI traps
+- `swipeActions` only works in `List`. Inside `LazyVStack` use `.contextMenu` or a manage sheet.
+- "Unable to type-check expression": drop `@ViewBuilder` from the computed property and use an explicit `return`.
+- Backgrounds come only from `themeManager.currentBackgroundImage` (never a hard-coded asset name), with
+  `.grayscale(1.0)` after `.scaledToFill()`.
+- Card colour `Color(red: 0.08, green: 0.12, blue: 0.15).opacity(0.92)`; full-screen overlay `Color.black.opacity(0.72)`.
+  Keep the dark visual system; no white-card patterns.
 
-## Hard stops
-- Always make targeted edits to existing files unless a full rewrite is explicitly needed or the file is being created for the first time. Never replace an entire file just to change a few lines.
-- Never reference deleted, renamed, or obsolete files
-- Never invent new Supabase tables, columns, relations, or backend workflows unless explicitly approved
-- Never rename existing models, files, DB columns, or asset names unless explicitly approved
-- Never assume helper methods or properties exist, state assumptions clearly first if needed
-- Prefer the simplest stable implementation over clever or over-engineered solutions
-- When fixing a bug, confirm the actual root cause before writing any code. Use superpowers:systematic-debugging first. Never stack speculative fixes.
+## Supabase
+- No new tables, columns, relations or backend workflows without explicit approval.
+- Read `SKILL_ontrack_rls_safety.md` before ANY policy or UUID change. Schema rules: `SCHEMA_RULES.md`.
+- Habits queries filter on `created_by`, never `user_id`.
+- DELETE under RLS: include every policy-relevant column in the filter.
+- Typed decoding with `.execute().value`. Chain `.eq()` before `.select()`. Use `upsert(onConflict:)` where needed.
+- Prefer the SDK's `Decodable` support over manual `JSONSerialization`.
+- `.from()` → `.rpc()`: decode into a small struct (e.g. `struct GroupLookup: Decodable { let id: UUID; let name: String }`),
+  never into full models like `AppGroup` or `Friendship`, whose non-optional fields may be missing.
+- Before reverting an RPC to `.from()`, check whether RLS blocks non-member access. If it does, the RPC is required: fix the
+  decode struct, not the approach.
+- Check the Supabase Swift SDK version in `Package.resolved` before writing query code; signatures change between versions.
 
-## Scope and read-only rules
-- When asked to 'report', 'audit', 'observe', or 'read', do NOT make any code changes. Produce observations and summaries only. If a fix seems beneficial, propose it and wait for explicit approval.
-- 'Report only, no edits' means Read/Grep/Bash(ls/cat/find) only — no Edit, Write, or Bash commands that modify files.
-- When given a numbered task list, complete each task in order and stop. Do not add unrequested follow-on tasks.
-- When creating plain-text config files (.gitignore, .env, .zshenv, etc.), use bash printf/heredoc rather than the Write tool to avoid markdown formatting artifacts. Verify contents with `cat` after creation.
+## Local keys (UserDefaults)
+`checkin_completed_date`, `healthkit_last_fetch_date`, `onboarding_seen_<screen>`, `tooltip_seen_<id>`,
+`biometric_auth_enabled`, `biometric_prompt_shown` (once per device). Screen overlays (`OnboardingTooltip.swift`, via
+`OnboardingManager.shared`) and button tooltips (`ButtonTooltip.swift`, direct UserDefaults) are separate systems.
 
-## SwiftUI rules
-See `.claude/rules/swiftui.md` — loads automatically when editing .swift files (includes app architecture, observable patterns, UI rules, auth, analytics).
-
-## Custom skill
-`SKILL_ontrack_core.md` at `~/Brain/02-projects/ontrack/SKILL_ontrack_core.md` — load ON DEMAND for architecture/conventions context, not on every session start.
-
-## File structure rules
-- New feature view models go in feature folders under `OnTrack/ViewModels/<Feature>/`
-- New shared views go in `OnTrack/Views/Shared/`
-- Prefer nesting small V1 helper models/enums/types inside the related file before creating new standalone files
-- Do not create extra files unless they clearly improve maintainability
-
-## Workflow rules
-- Start Claude Code from:
-  `cd ~/Desktop/OnTrack && claude --dangerously-skip-permissions`
-- To work inside the Obsidian vault: `cd ~/Brain && claude --dangerously-skip-permissions`
-- Before any multi-file edit, state the 5-line plan: files to touch, exact symbols, existing conflicts noticed, build/test command, one risk. Wait for my OK. (For complex work, use `/ultraplan` instead.)
-- Before any Netlify deploy, check current deployment status first. Do not redeploy identical changes out of uncertainty.
-- At the end of a Claude Code session, remind Matt to run `/insights`
-- After any UI file edit: run `/capture` on the affected view's `#Preview` before committing — compile alone is not sufficient for design work.
-
-## Subagent fan-out
-For 4+ independent file edits, delegate to parallel subagents via the Task tool. Do NOT fan out when edits depend on each other sequentially. /ultraplan must list which subagents will be spawned before execution begins. Compress subagent prompts to the single file being edited plus a 100-word context summary — never pass the full project tree.
-
-## Supabase keys & patterns
-See `.claude/rules/supabase.md` — loads automatically when editing .swift and .sql files.
-
-## Related docs
-- App/build status: `PROJECT_STATUS.md`
-- Schema and DB rules: `SCHEMA_RULES.md`
-- RLS safety rules (read before ANY policy or UUID change): `SKILL_ontrack_rls_safety.md`
-
-## Installed Claude Code plugins
-- Small tasks: work directly, in plan mode when non-trivial; `/ultraplan` for large features. Run `/session` at end of every session.
-
-## Skill invocation rules
-- `/advisor` is for debugging failing code or error triage ONLY. Do not invoke it for design, planning, or non-debugging tasks — it wastes context.
-- `/ultraplan` before new features, significant refactors, or multi-file architectural changes. Not for bug fixes or single-file edits.
-
-## Build and call-site rules
-- Stay in ~/Desktop/OnTrack when starting — never start from ~ or a different directory
-- If a slash command fails, report it immediately instead of spending the session trying workarounds
-
-## Session end auto-log
-At session end: (1) update `~/Brain/02-projects/ontrack/DAILY_STATUS.md` (auto-generated daily status dashboard — refresh the relevant sections, do NOT append numbered `## Session NN` entries); (2) write 5-line summary to `~/Desktop/OnTrack/OnTrack/.claude/logs/session-YYYYMMDD-HHMM.md`.
-
-## MCP Servers
-- claude-in-chrome PERMITTED (ban lifted 2026-06-18) — interactive/logged-in tasks only; Playwright MCP for headless/scheduled. chrome-local-mcp NEVER.
-- If an MCP server fails to load after 2 attempts, stop and tell the user immediately.
-- MCP server debugging has a 5-minute timebox. Pivot to alternative approach if not resolved.
-
-## App Store Connect API
-- Key ID: 9SJ6J5WR4U
-- Issuer ID: 5b0f9937-7671-4ee9-a874-3097a137c780
-- Key path: ~/.appstoreconnect/private_keys/AuthKey_9SJ6J5WR4U.p8
-
-## Content pipeline rules
-See `.claude/rules/content-pipeline.md` — loads automatically when editing scripts or website files.
-
-## Diagnosis Before Fixing
-- For bugs involving data not appearing: verify the component rendering path and data fetch BEFORE attempting fixes
-- Confirm stated premises by reading the code first — never act on assumptions
-- State root cause hypothesis + evidence before any code edit
+## Release
+- App Store Connect API key `9SJ6J5WR4U` (issuer `5b0f9937-7671-4ee9-a874-3097a137c780`), key file
+  `~/.appstoreconnect/private_keys/AuthKey_9SJ6J5WR4U.p8`. Before any TestFlight or publishing work, check the Team ID,
+  API key, `gh` auth and SSH keys exist.
+- Before a Netlify deploy, check whether the change is already live. Don't redeploy identical changes.
