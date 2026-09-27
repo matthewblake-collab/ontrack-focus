@@ -63,3 +63,6 @@ project.pbxproj.bak
 
 # graphify code knowledge graph (local only, never commit)
 graphify-out/
+
+# gmail-triage run output: personal email metadata, never committed
+gmail-triage/out/

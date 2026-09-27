@@ -71,4 +71,4 @@ Style: Dark #0D141A bg, white text, green #1A8C6B accents, system-ui heavy, subt
 
 ## Advisor mode
 If content strategy questions are complex or ambiguous, escalate to Opus after 2 attempts.
-Trigger: run `claude --model claude-opus-4-5` for strategy decisions.
+Trigger: run `claude --model claude-opus-4-7` for strategy decisions.
