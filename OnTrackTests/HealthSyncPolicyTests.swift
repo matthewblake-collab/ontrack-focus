@@ -251,21 +251,77 @@ final class HealthSyncPolicyTests: XCTestCase {
         XCTAssertTrue(HealthSyncReport(countsByMetricType: [:]).isEmpty)
     }
 
-    // MARK: - The eight metric types the contract locks in
+    // MARK: - Comprehensive daily-rollup contract
 
-    func testMetricTypeVocabulary_isExactlyTheEightExistingTypes() {
+    func testMetricTypeVocabulary_coversEveryApprovedNumericDailyRollup() {
+        XCTAssertEqual(HealthSyncPolicy.knownMetricTypes.count, 27)
+        XCTAssertTrue(Set([
+            "heart_rate",
+            "resting_hr",
+            "hrv",
+            "heart_rate_recovery_one_minute",
+            "oxygen_saturation",
+            "sleeping_wrist_temperature",
+            "respiratory_rate",
+            "vo2_max",
+            "steps",
+            "active_calories",
+            "basal_calories",
+            "exercise_minutes",
+            "stand_minutes",
+            "walk_run_distance_km",
+            "cycling_distance_km",
+            "swimming_distance_m",
+            "body_mass_kg",
+            "body_fat_percentage",
+            "lean_body_mass_kg",
+            "height_cm",
+            "walking_speed_m_s",
+            "walking_asymmetry_percentage",
+            "walking_steadiness_percentage",
+            "six_minute_walk_distance_m",
+            "sleep_deep_minutes",
+            "sleep_rem_minutes",
+            "sleep_total_minutes"
+        ]).isSubset(of: Set(HealthSyncPolicy.knownMetricTypes)))
+    }
+
+    func testDailyMetricCatalog_hasUniqueIdentifiersAndMetricTypes() {
+        XCTAssertEqual(Set(HealthDailyMetrics.all.map(\.identifier)).count, HealthDailyMetrics.all.count)
+        XCTAssertEqual(Set(HealthDailyMetrics.all.map(\.metricType)).count, HealthDailyMetrics.all.count)
+        XCTAssertEqual(HealthDailyMetrics.all.count, 24)
+    }
+
+    func testDailyMetricCatalog_preservesLegacyVocabularyForExistingRows() {
+        XCTAssertEqual(HealthDailyMetrics.metricType(for: "HKQuantityTypeIdentifierStepCount"), "steps")
+        XCTAssertEqual(HealthDailyMetrics.metricType(for: "HKQuantityTypeIdentifierActiveEnergyBurned"), "active_calories")
+        XCTAssertEqual(HealthDailyMetrics.metricType(for: "HKQuantityTypeIdentifierRestingHeartRate"), "resting_hr")
+        XCTAssertEqual(HealthDailyMetrics.metricType(for: "HKQuantityTypeIdentifierHeartRateVariabilitySDNN"), "hrv")
+        XCTAssertEqual(HealthDailyMetrics.metricType(for: "HKQuantityTypeIdentifierVO2Max"), "vo2_max")
+    }
+
+    // MARK: - Historical comparison backfill
+
+    func testHistoryWindow_usesOneYearUntilTheFirstBackfillCompletes() {
         XCTAssertEqual(
-            Set(HealthSyncPolicy.knownMetricTypes),
-            Set([
-                "steps",
-                "active_calories",
-                "resting_hr",
-                "hrv",
-                "vo2_max",
-                "sleep_deep_minutes",
-                "sleep_rem_minutes",
-                "sleep_total_minutes"
-            ])
+            HealthSyncPolicy.lookbackDays(historicalBackfillCompleted: false),
+            365
+        )
+    }
+
+    func testHistoryWindow_returnsToRollingRefreshAfterBackfill() {
+        XCTAssertEqual(
+            HealthSyncPolicy.lookbackDays(historicalBackfillCompleted: true),
+            30
+        )
+    }
+
+    func testUploadBatches_keepTheHistoricalPayloadBounded() {
+        XCTAssertEqual(HealthSyncPolicy.uploadBatchSize, 500)
+        XCTAssertEqual(HealthSyncPolicy.uploadRanges(rowCount: 0), [])
+        XCTAssertEqual(
+            HealthSyncPolicy.uploadRanges(rowCount: 1_201),
+            [0..<500, 500..<1_000, 1_000..<1_201]
         )
     }
 }

@@ -229,27 +229,20 @@ final class HealthSyncStoreTests: XCTestCase {
     }
 
     func testFrequencyPlan_coalescedQuantityTypesAreHourly() {
-        for identifier in [
-            "HKQuantityTypeIdentifierStepCount",
-            "HKQuantityTypeIdentifierActiveEnergyBurned",
-            "HKQuantityTypeIdentifierRestingHeartRate",
-            "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
-            "HKQuantityTypeIdentifierVO2Max"
-        ] {
+        for identifier in HealthDailyMetrics.all.map(\.identifier) {
             XCTAssertEqual(HealthObservedTypes.frequency(for: identifier), .hourly, identifier)
         }
     }
 
     func testFrequencyPlan_unknownTypeHasNoFrequency() {
-        XCTAssertNil(HealthObservedTypes.frequency(for: "HKQuantityTypeIdentifierOxygenSaturation"))
+        XCTAssertNil(HealthObservedTypes.frequency(for: "HKQuantityTypeIdentifierDietaryCaffeine"))
     }
 
-    /// The observed set must cover exactly the eight metric types already in
-    /// the export contract — no more, no less.
-    func testObservedTypes_coverTheEightContractMetricTypesExactly() {
+    /// The observed set covers every approved daily summary and workouts.
+    func testObservedTypes_coverTheDailyRollupContractExactly() {
         let produced = Set(HealthObservedTypes.all.flatMap(\.metricTypes))
         XCTAssertEqual(produced, Set(HealthSyncPolicy.knownMetricTypes))
-        XCTAssertEqual(HealthObservedTypes.all.count, 7, "6 metric sources + workouts")
+        XCTAssertEqual(HealthObservedTypes.all.count, 26, "24 quantity sources + sleep + workouts")
     }
 
     // MARK: - Debounce

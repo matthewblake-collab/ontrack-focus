@@ -83,19 +83,36 @@ nonisolated enum HealthSyncPolicy {
     static let maxAttempts = 3
     static let baseDelay: TimeInterval = 1.0
     static let maxDelay: TimeInterval = 8.0
+    static let historicalLookbackDays = 365
+    static let rollingLookbackDays = 30
+    static let uploadBatchSize = 500
 
-    /// The eight `metric_type` values OnTrack writes today. The export contract
-    /// and the Personal Health Machine adapter are both pinned to this list.
-    static let knownMetricTypes = [
-        "steps",
-        "active_calories",
-        "resting_hr",
-        "hrv",
-        "vo2_max",
-        "sleep_deep_minutes",
-        "sleep_rem_minutes",
-        "sleep_total_minutes"
-    ]
+    /// The first successful sync from a build carrying the historical gate
+    /// reaches one year into HealthKit. Later refreshes remain deliberately
+    /// small so routine background delivery does not repeatedly scan history.
+    static func lookbackDays(historicalBackfillCompleted: Bool) -> Int {
+        historicalBackfillCompleted ? rollingLookbackDays : historicalLookbackDays
+    }
+
+    /// Bounded ranges keep the one-time historical upsert comfortably below
+    /// normal request-size limits while preserving idempotent conflict keys.
+    static func uploadRanges(rowCount: Int) -> [Range<Int>] {
+        guard rowCount > 0 else { return [] }
+        return stride(from: 0, to: rowCount, by: uploadBatchSize).map { start in
+            start..<min(start + uploadBatchSize, rowCount)
+        }
+    }
+
+    /// Every numeric daily rollup the existing unconstrained `metric_type`
+    /// column can carry without a schema change. Full-fidelity samples, routes,
+    /// ECG waveforms and sleep intervals deliberately remain out of this list.
+    static var knownMetricTypes: [String] {
+        HealthDailyMetrics.all.map(\.metricType) + [
+            "sleep_deep_minutes",
+            "sleep_rem_minutes",
+            "sleep_total_minutes"
+        ]
+    }
 
     /// 1s, 2s, 4s, … capped at `maxDelay`.
     static func backoffDelay(forAttempt attempt: Int) -> TimeInterval {
@@ -157,6 +174,57 @@ nonisolated enum HealthDeliveryFrequency: String, Equatable, CaseIterable {
     case hourly
 }
 
+nonisolated enum HealthDailyAggregation: String, Equatable {
+    case cumulativeSum
+    case discreteAverage
+}
+
+/// HealthKit identifiers and stable Supabase vocabulary for the approved
+/// no-SQL daily-summary expansion. HealthKit units stay in HealthKitManager so
+/// this contract remains testable without importing the framework.
+nonisolated struct HealthDailyMetric: Equatable {
+    let identifier: String
+    let metricType: String
+    let aggregation: HealthDailyAggregation
+}
+
+nonisolated enum HealthDailyMetrics {
+    static let all: [HealthDailyMetric] = [
+        HealthDailyMetric(identifier: "HKQuantityTypeIdentifierHeartRate", metricType: "heart_rate", aggregation: .discreteAverage),
+        HealthDailyMetric(identifier: "HKQuantityTypeIdentifierRestingHeartRate", metricType: "resting_hr", aggregation: .discreteAverage),
+        HealthDailyMetric(identifier: "HKQuantityTypeIdentifierHeartRateVariabilitySDNN", metricType: "hrv", aggregation: .discreteAverage),
+        HealthDailyMetric(identifier: "HKQuantityTypeIdentifierHeartRateRecoveryOneMinute", metricType: "heart_rate_recovery_one_minute", aggregation: .discreteAverage),
+        HealthDailyMetric(identifier: "HKQuantityTypeIdentifierOxygenSaturation", metricType: "oxygen_saturation", aggregation: .discreteAverage),
+        HealthDailyMetric(identifier: "HKQuantityTypeIdentifierAppleSleepingWristTemperature", metricType: "sleeping_wrist_temperature", aggregation: .discreteAverage),
+        HealthDailyMetric(identifier: "HKQuantityTypeIdentifierRespiratoryRate", metricType: "respiratory_rate", aggregation: .discreteAverage),
+        HealthDailyMetric(identifier: "HKQuantityTypeIdentifierVO2Max", metricType: "vo2_max", aggregation: .discreteAverage),
+        HealthDailyMetric(identifier: "HKQuantityTypeIdentifierStepCount", metricType: "steps", aggregation: .cumulativeSum),
+        HealthDailyMetric(identifier: "HKQuantityTypeIdentifierActiveEnergyBurned", metricType: "active_calories", aggregation: .cumulativeSum),
+        HealthDailyMetric(identifier: "HKQuantityTypeIdentifierBasalEnergyBurned", metricType: "basal_calories", aggregation: .cumulativeSum),
+        HealthDailyMetric(identifier: "HKQuantityTypeIdentifierAppleExerciseTime", metricType: "exercise_minutes", aggregation: .cumulativeSum),
+        HealthDailyMetric(identifier: "HKQuantityTypeIdentifierAppleStandTime", metricType: "stand_minutes", aggregation: .cumulativeSum),
+        HealthDailyMetric(identifier: "HKQuantityTypeIdentifierDistanceWalkingRunning", metricType: "walk_run_distance_km", aggregation: .cumulativeSum),
+        HealthDailyMetric(identifier: "HKQuantityTypeIdentifierDistanceCycling", metricType: "cycling_distance_km", aggregation: .cumulativeSum),
+        HealthDailyMetric(identifier: "HKQuantityTypeIdentifierDistanceSwimming", metricType: "swimming_distance_m", aggregation: .cumulativeSum),
+        HealthDailyMetric(identifier: "HKQuantityTypeIdentifierBodyMass", metricType: "body_mass_kg", aggregation: .discreteAverage),
+        HealthDailyMetric(identifier: "HKQuantityTypeIdentifierBodyFatPercentage", metricType: "body_fat_percentage", aggregation: .discreteAverage),
+        HealthDailyMetric(identifier: "HKQuantityTypeIdentifierLeanBodyMass", metricType: "lean_body_mass_kg", aggregation: .discreteAverage),
+        HealthDailyMetric(identifier: "HKQuantityTypeIdentifierHeight", metricType: "height_cm", aggregation: .discreteAverage),
+        HealthDailyMetric(identifier: "HKQuantityTypeIdentifierWalkingSpeed", metricType: "walking_speed_m_s", aggregation: .discreteAverage),
+        HealthDailyMetric(identifier: "HKQuantityTypeIdentifierWalkingAsymmetryPercentage", metricType: "walking_asymmetry_percentage", aggregation: .discreteAverage),
+        HealthDailyMetric(identifier: "HKQuantityTypeIdentifierAppleWalkingSteadiness", metricType: "walking_steadiness_percentage", aggregation: .discreteAverage),
+        HealthDailyMetric(identifier: "HKQuantityTypeIdentifierSixMinuteWalkTestDistance", metricType: "six_minute_walk_distance_m", aggregation: .discreteAverage)
+    ]
+
+    static func metricType(for identifier: String) -> String? {
+        all.first { $0.identifier == identifier }?.metricType
+    }
+
+    static func definition(for identifier: String) -> HealthDailyMetric? {
+        all.first { $0.identifier == identifier }
+    }
+}
+
 /// One HealthKit type the sync observes, and what it feeds.
 nonisolated struct HealthObservedType: Equatable {
     /// The `HKObjectType` identifier string, e.g. `HKQuantityTypeIdentifierStepCount`.
@@ -171,7 +239,7 @@ nonisolated enum HealthObservedTypes {
     /// volume, and the whole point of event-driven sync is that a finished
     /// workout lands without opening the app.
     ///
-    /// The five quantity types are asked for hourly. iOS coalesces
+    /// Numeric quantity types are asked for hourly. iOS coalesces
     /// high-frequency quantity samples regardless of what is requested, so
     /// `.immediate` on steps would be a promise the OS does not keep.
     static let all: [HealthObservedType] = [
@@ -180,23 +248,12 @@ nonisolated enum HealthObservedTypes {
                            frequency: .immediate),
         HealthObservedType(identifier: "HKCategoryTypeIdentifierSleepAnalysis",
                            metricTypes: ["sleep_deep_minutes", "sleep_rem_minutes", "sleep_total_minutes"],
-                           frequency: .immediate),
-        HealthObservedType(identifier: "HKQuantityTypeIdentifierStepCount",
-                           metricTypes: ["steps"],
-                           frequency: .hourly),
-        HealthObservedType(identifier: "HKQuantityTypeIdentifierActiveEnergyBurned",
-                           metricTypes: ["active_calories"],
-                           frequency: .hourly),
-        HealthObservedType(identifier: "HKQuantityTypeIdentifierRestingHeartRate",
-                           metricTypes: ["resting_hr"],
-                           frequency: .hourly),
-        HealthObservedType(identifier: "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
-                           metricTypes: ["hrv"],
-                           frequency: .hourly),
-        HealthObservedType(identifier: "HKQuantityTypeIdentifierVO2Max",
-                           metricTypes: ["vo2_max"],
+                           frequency: .immediate)
+    ] + HealthDailyMetrics.all.map {
+        HealthObservedType(identifier: $0.identifier,
+                           metricTypes: [$0.metricType],
                            frequency: .hourly)
-    ]
+    }
 
     static var identifiers: [String] { all.map(\.identifier) }
 

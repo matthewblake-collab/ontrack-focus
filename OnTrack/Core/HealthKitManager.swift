@@ -5,6 +5,7 @@ import UIKit
 
 @Observable
 class HealthKitManager {
+    private static let historicalBackfillCompletedKey = "healthkit_history_backfill_completed_v1"
     static let shared = HealthKitManager()
 
     /// UserDefaults key holding the Brisbane day (`yyyy-MM-dd`) of the last
@@ -33,16 +34,11 @@ class HealthKitManager {
 
     private let readTypes: Set<HKObjectType> = {
         var types = Set<HKObjectType>()
-        let ids: [HKQuantityTypeIdentifier] = [
-            .restingHeartRate, .heartRateVariabilitySDNN, .stepCount, .activeEnergyBurned,
-            .distanceWalkingRunning, .distanceCycling, .appleExerciseTime,
-            .vo2Max, .bodyMass, .bodyFatPercentage, .height
-        ]
-        for id in ids {
-            types.insert(HKQuantityType(id))
+        for observed in HealthObservedTypes.all {
+            if let sampleType = HealthSyncEngine.sampleType(for: observed.identifier) {
+                types.insert(sampleType)
+            }
         }
-        types.insert(HKObjectType.categoryType(forIdentifier: .sleepAnalysis)!)
-        types.insert(HKObjectType.workoutType())
         return types
     }()
 
@@ -455,16 +451,19 @@ class HealthKitManager {
         // phone is. Brisbane is UTC+10 with no DST.
         let cal = HealthDay.calendar
         let endOfToday = cal.startOfDay(for: Date())
-        let start = cal.date(byAdding: .day, value: -30, to: endOfToday) ?? endOfToday
+        let historicalBackfillCompleted = UserDefaults.standard.bool(
+            forKey: Self.historicalBackfillCompletedKey
+        )
+        let lookbackDays = HealthSyncPolicy.lookbackDays(
+            historicalBackfillCompleted: historicalBackfillCompleted
+        )
+        let start = cal.date(byAdding: .day, value: -lookbackDays, to: endOfToday) ?? endOfToday
 
-        async let stepsRows  = dailySumRows(.stepCount,           unit: .count(),                    from: start, to: endOfToday, type: "steps")
-        async let calsRows   = dailySumRows(.activeEnergyBurned,  unit: .kilocalorie(),              from: start, to: endOfToday, type: "active_calories")
-        async let rhrRows    = dailyRecentRows(.restingHeartRate, unit: HKUnit.count().unitDivided(by: .minute()), from: start, to: endOfToday, type: "resting_hr")
-        async let hrvRows    = dailyRecentRows(.heartRateVariabilitySDNN, unit: HKUnit.secondUnit(with: .milli),  from: start, to: endOfToday, type: "hrv")
-        async let vo2Rows    = dailyRecentRows(.vo2Max,           unit: HKUnit(from: "ml/kg*min"),   from: start, to: endOfToday, type: "vo2_max")
-        async let sleepRows  = sleepDailyRows(from: start, to: endOfToday)
-
-        let allRows = await stepsRows + calsRows + rhrRows + hrvRows + vo2Rows + sleepRows
+        var allRows: [HMEntry] = []
+        for metric in HealthDailyMetrics.all {
+            allRows += await dailyQuantityRows(metric, from: start, to: endOfToday)
+        }
+        allRows += await sleepDailyRows(from: start, to: endOfToday)
         guard !allRows.isEmpty else { return .noData }
 
         let payload = allRows.map { entry in
@@ -478,10 +477,15 @@ class HealthKitManager {
         }
 
         do {
-            try await supabase
-                .from("health_metrics")
-                .upsert(payload, onConflict: "user_id,recorded_at,metric_type")
-                .execute()
+            for range in HealthSyncPolicy.uploadRanges(rowCount: payload.count) {
+                try await supabase
+                    .from("health_metrics")
+                    .upsert(Array(payload[range]), onConflict: "user_id,recorded_at,metric_type")
+                    .execute()
+            }
+            if !historicalBackfillCompleted {
+                UserDefaults.standard.set(true, forKey: Self.historicalBackfillCompletedKey)
+            }
         } catch let urlError as URLError {
             // Preserve transport errors as-is so the retry policy can tell a
             // timeout (retry) from an expired session (do not retry).
@@ -501,20 +505,14 @@ class HealthKitManager {
     func dailyEntries(forObservedTypeIdentifier identifier: String, from: Date, to: Date) async -> [(date: Date, metricType: String, value: Double)] {
         let rows: [HMEntry]
         switch identifier {
-        case "HKQuantityTypeIdentifierStepCount":
-            rows = await dailySumRows(.stepCount, unit: .count(), from: from, to: to, type: "steps")
-        case "HKQuantityTypeIdentifierActiveEnergyBurned":
-            rows = await dailySumRows(.activeEnergyBurned, unit: .kilocalorie(), from: from, to: to, type: "active_calories")
-        case "HKQuantityTypeIdentifierRestingHeartRate":
-            rows = await dailyRecentRows(.restingHeartRate, unit: HKUnit.count().unitDivided(by: .minute()), from: from, to: to, type: "resting_hr")
-        case "HKQuantityTypeIdentifierHeartRateVariabilitySDNN":
-            rows = await dailyRecentRows(.heartRateVariabilitySDNN, unit: HKUnit.secondUnit(with: .milli), from: from, to: to, type: "hrv")
-        case "HKQuantityTypeIdentifierVO2Max":
-            rows = await dailyRecentRows(.vo2Max, unit: HKUnit(from: "ml/kg*min"), from: from, to: to, type: "vo2_max")
         case "HKCategoryTypeIdentifierSleepAnalysis":
             rows = await sleepDailyRows(from: from, to: to)
         default:
-            rows = []
+            if let metric = HealthDailyMetrics.definition(for: identifier) {
+                rows = await dailyQuantityRows(metric, from: from, to: to)
+            } else {
+                rows = []
+            }
         }
         return rows.map { (date: $0.date, metricType: $0.metricType, value: $0.value) }
     }
@@ -526,6 +524,50 @@ class HealthKitManager {
         f.formatOptions = [.withInternetDateTime]
         return f
     }()
+
+    private func dailyQuantityRows(_ metric: HealthDailyMetric, from: Date, to: Date) async -> [HMEntry] {
+        guard let unit = Self.unit(for: metric.metricType) else { return [] }
+        let identifier = HKQuantityTypeIdentifier(rawValue: metric.identifier)
+        switch metric.aggregation {
+        case .cumulativeSum:
+            return await dailySumRows(identifier, unit: unit, from: from, to: to, type: metric.metricType)
+        case .discreteAverage:
+            return await dailyRecentRows(identifier, unit: unit, from: from, to: to, type: metric.metricType)
+        }
+    }
+
+    private static func unit(for metricType: String) -> HKUnit? {
+        switch metricType {
+        case "heart_rate", "resting_hr", "heart_rate_recovery_one_minute", "respiratory_rate":
+            return HKUnit.count().unitDivided(by: .minute())
+        case "hrv":
+            return HKUnit.secondUnit(with: .milli)
+        case "oxygen_saturation", "body_fat_percentage", "walking_asymmetry_percentage", "walking_steadiness_percentage":
+            return .percent()
+        case "sleeping_wrist_temperature":
+            return .degreeCelsius()
+        case "vo2_max":
+            return HKUnit(from: "ml/kg*min")
+        case "steps":
+            return .count()
+        case "active_calories", "basal_calories":
+            return .kilocalorie()
+        case "exercise_minutes", "stand_minutes":
+            return .minute()
+        case "walk_run_distance_km", "cycling_distance_km":
+            return .meterUnit(with: .kilo)
+        case "swimming_distance_m", "six_minute_walk_distance_m":
+            return .meter()
+        case "body_mass_kg", "lean_body_mass_kg":
+            return .gramUnit(with: .kilo)
+        case "height_cm":
+            return .meterUnit(with: .centi)
+        case "walking_speed_m_s":
+            return HKUnit(from: "m/s")
+        default:
+            return nil
+        }
+    }
 
     private func dailySumRows(_ identifier: HKQuantityTypeIdentifier, unit: HKUnit, from: Date, to: Date, type: String) async -> [HMEntry] {
         let qType = HKQuantityType(identifier)
