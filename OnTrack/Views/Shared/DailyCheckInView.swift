@@ -286,14 +286,14 @@ struct DailyCheckInView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .frame(height: 52)
-                        .background(
+                        .background {
                             LinearGradient(
                                 colors: [gradientStart, gradientEnd],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
                             .opacity(vm.canSubmit ? 1 : 0.45)
-                        )
+                        }
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                     }
                     .disabled(!vm.canSubmit)
